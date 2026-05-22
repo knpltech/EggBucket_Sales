@@ -55,7 +55,9 @@
         private var mapReady = false
         private var locationPermissionGranted = false
         private var hasFetchedCustomers = false
-        private var isFirstLoad = true
+        private var isFirstLocationLoad = true
+        private var isFirstCustomerLoad = true
+        private var shouldFocusOnNextLocation = false
         private val activeMarkers = mutableMapOf<String, Marker>()
         private val markerIcons = mutableMapOf<Int, BitmapDescriptor>()
 
@@ -106,10 +108,13 @@
                             if (::customerAdapter.isInitialized) {
                                 customerAdapter.updateCurrentLocation(latLng)
                             }
-                            
-                            if (isFirstLoad && mapReady) {
+                        }
+                        
+                        if (mapReady) {
+                            if (isFirstLocationLoad || shouldFocusOnNextLocation) {
                                 googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 17f))
-                                isFirstLoad = false
+                                isFirstLocationLoad = false
+                                shouldFocusOnNextLocation = false
                             }
                         }
                     }
@@ -307,8 +312,18 @@
                         )
                         viewPager?.adapter = customerAdapter
                         viewPager?.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
+                            private var isUserScroll = false
+
+                            override fun onPageScrollStateChanged(state: Int) {
+                                if (state == ViewPager2.SCROLL_STATE_DRAGGING) {
+                                    isUserScroll = true
+                                } else if (state == ViewPager2.SCROLL_STATE_IDLE) {
+                                    isUserScroll = false
+                                }
+                            }
+
                             override fun onPageSelected(position: Int) {
-                                if (position in allCustomers.indices) {
+                                if (isUserScroll && position in allCustomers.indices) {
                                     val customer = allCustomers[position]
                                     val marker = activeMarkers[customer.uid]
                                     marker?.let {
@@ -323,16 +338,10 @@
 
                     if (allCustomers.isNotEmpty()) {
                         viewPager?.visibility = View.VISIBLE
-                        if (isFirstLoad) {
+                        if (isFirstCustomerLoad) {
                             val targetIndex = if (oldPosition < allCustomers.size) oldPosition else 0
                             viewPager?.currentItem = targetIndex
-                            parseLatLng(allCustomers[targetIndex].location)?.let { latLng ->
-                                googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 17f))
-                                viewPager?.postDelayed({
-                                    activeMarkers[allCustomers[targetIndex].uid]?.showInfoWindow()
-                                }, 500)
-                            }
-                            isFirstLoad = false
+                            isFirstCustomerLoad = false
                         }
                     } else {
                         viewPager?.visibility = View.GONE
@@ -354,6 +363,11 @@
 
         override fun onResume() {
             super.onResume()
+            shouldFocusOnNextLocation = true
+            if (mapReady && ::googleMap.isInitialized && currentUserLocation != null) {
+                googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentUserLocation!!, 17f))
+                shouldFocusOnNextLocation = false
+            }
             if (::fusedLocationClient.isInitialized && ::locationCallback.isInitialized &&
                 ActivityCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
             ) {
@@ -458,6 +472,18 @@
 
             if (::fusedLocationClient.isInitialized && ::locationCallback.isInitialized) {
                 fusedLocationClient.removeLocationUpdates(locationCallback)
+            }
+
+            hasFetchedCustomers = false
+
+            // Explicitly remove the SupportMapFragment to avoid getMapAsync stuck/freeze bugs when recreated
+            try {
+                val mapFragment = childFragmentManager.findFragmentById(R.id.mapfordelivery)
+                if (mapFragment != null) {
+                    childFragmentManager.beginTransaction().remove(mapFragment).commitAllowingStateLoss()
+                }
+            } catch (e: Exception) {
+                Log.e("CustomerMapForDelivery", "Error removing map fragment", e)
             }
         }
 
