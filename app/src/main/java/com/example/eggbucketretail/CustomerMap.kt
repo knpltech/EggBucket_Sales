@@ -1,0 +1,269 @@
+package com.example.eggbucketretail
+
+import android.Manifest
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.os.Bundle
+import android.util.Log
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.TextView
+import android.widget.Toast
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import androidx.fragment.app.Fragment
+import com.bumptech.glide.Glide
+import com.example.eggbucketretail.Models.Customer
+import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.GoogleMap
+import com.google.android.gms.maps.OnMapReadyCallback
+import com.google.android.gms.maps.SupportMapFragment
+import com.google.android.gms.maps.model.*
+import com.google.firebase.firestore.FirebaseFirestore
+
+class CustomerMap : Fragment(), OnMapReadyCallback {
+    private lateinit var googleMap: GoogleMap
+    private val markerMap = mutableMapOf<String, Marker>()
+    private val allCustomers = mutableListOf<Customer>()
+    private lateinit var customerCard: LinearLayout
+    private lateinit var customerImage: ImageView
+    private lateinit var customerName: TextView
+    private lateinit var customerBusiness: TextView
+    private lateinit var customerlatlng: TextView
+    private  var  LOCATION_PERMISSION_REQUEST_CODE = 1
+    private var customersListener: com.google.firebase.firestore.ListenerRegistration? = null
+
+    override fun onCreateView(
+        inflater: LayoutInflater, container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View? = inflater.inflate(R.layout.fragment_customer_map, container, false)
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        // Bind bottom card views
+        customerCard = view.findViewById(R.id.customerBottomCard)
+        customerImage = view.findViewById(R.id.customerbottomimageforsalesman)
+        customerName = view.findViewById(R.id.customerNameforsalesman)
+        customerBusiness = view.findViewById(R.id.businessNameforsalesman)
+        customerlatlng = view.findViewById(R.id.customerLatlngforsalesman)
+
+
+        customerCard.visibility = View.GONE // Initially hide
+
+        val mapFragment = childFragmentManager.findFragmentById(R.id.map) as SupportMapFragment
+        mapFragment.getMapAsync(this)
+    }
+    // setting google maps
+    override fun onMapReady(map: GoogleMap) {
+        googleMap = map
+        googleMap.uiSettings.isZoomControlsEnabled = true
+        fetchCustomersAndMark()
+        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION)
+            == PackageManager.PERMISSION_GRANTED) {
+
+            googleMap.isMyLocationEnabled = true
+            googleMap.uiSettings.isMyLocationButtonEnabled = true  // Optional, usually true by default
+
+        } else {
+            ActivityCompat.requestPermissions(
+                requireActivity(),
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                 LOCATION_PERMISSION_REQUEST_CODE
+            )
+        }
+
+//        googleMap.setOnMarkerClickListener { marker ->
+//            val markerTitle = marker.title?.trim()?.lowercase()  // Normalize the title
+//            Log.d("CustomerMap", "Marker clicked: $markerTitle")
+//
+//            val customer = allCustomers.find {
+//                it.uid.trim().lowercase() == markerTitle // Compare with the normalized customer name
+//            }
+//
+//            if (customer != null) {
+//                showCustomerCard(customer)
+//            } else {
+//                Log.d("CustomerMap", "Customer not found for: $markerTitle")
+//            }
+//
+//            true  // Return true to prevent the default info window behavior
+//        }
+        // handling marker click
+        googleMap.setOnMapClickListener {
+            customerCard.visibility = View.GONE
+        }
+
+
+
+
+    }
+    // fetching customer from firestore
+    private fun fetchCustomersAndMark() {
+        val db = FirebaseFirestore.getInstance()
+        val todayDate = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
+        customersListener?.remove()
+        customersListener = db.collection("customers")
+            .addSnapshotListener { snapshot, error ->
+                if (snapshot == null) return@addSnapshotListener
+                
+                allCustomers.clear()
+                googleMap.clear()
+                markerMap.clear()
+
+                var firstLatLng: LatLng? = null
+
+                for (doc in snapshot.documents) {
+                    val uid=doc.id
+                    val name = doc.getString("name") ?: continue
+                    val location = doc.getString("location") ?: continue
+                    val business = doc.getString("business") ?: "Unknown"
+                    val phone = doc.getString("phone") ?: "N/A"
+                    val imageUrl = doc.getString("imageUrl") ?: ""
+                    // Check 'todayOverride' map from Firestore
+                    var showOnMap = true
+                    val todayOverride = doc.get("todayOverride") as? Map<*, *>
+                    
+                    if (todayOverride != null) {
+                        val overrideDate = todayOverride["date"] as? String
+                        val overrideStatus = todayOverride["status"] as? String
+                        
+                        // Only hide if the override is for TODAY and explicitly set to "OFF"
+                        if (overrideDate == todayDate && overrideStatus?.uppercase() == "OFF") {
+                            showOnMap = false
+                        }
+                    }
+
+                    if (!showOnMap) continue
+
+                    val latLng = location
+                        .replace("Lat:", "")
+                        .replace("Lng:", "")
+                        .split(",")
+                        .map { it.trim().toDoubleOrNull() }
+
+                    if (latLng.size == 2 && latLng[0] != null && latLng[1] != null) {
+                        val lat = latLng[0]!!
+                        val lng = latLng[1]!!
+                        val position = LatLng(lat, lng)
+
+                        if (firstLatLng == null) {
+                            firstLatLng = position
+                        }
+
+                        val customer = Customer(
+                            uid=uid,
+                            name=name,
+                            location = location,
+                            business = business,
+                            imageUrl = imageUrl,
+                            phone = phone)
+                        allCustomers.add(customer)
+
+                        val marker = googleMap.addMarker(
+                            MarkerOptions()
+                                .position(position)
+                                .title(name)
+                                .snippet("Business: $business")
+                                .icon(resizeMarker(requireContext(), R.drawable.baseline_location_pin_24, 80, 80))
+                        )
+                        marker?.tag = uid
+
+                        marker?.let {
+                            markerMap[uid.lowercase()]=it
+                            markerMap[name.lowercase()] = it
+                            markerMap[business.lowercase()] = it
+                        }
+                    }
+                }
+
+                googleMap.setOnMapLoadedCallback {
+                    firstLatLng?.let {
+                        googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(it, 10f))
+                    } ?: Toast.makeText(requireContext(), "No valid customer location found", Toast.LENGTH_SHORT).show()
+                }
+            }
+        googleMap.setOnMarkerClickListener { marker ->
+            val uidFromMarker = marker.tag as? String
+
+            val customer = allCustomers.find {
+                it.uid.trim().lowercase() == uidFromMarker?.trim()?.lowercase()
+            }
+
+            if (customer != null) {
+                showCustomerCard(customer)
+            } else {
+                Log.d("CustomerMap", "Customer not found for: ${marker.title}")
+            }
+
+            true
+        }
+
+        googleMap.setOnMapClickListener {
+            customerCard.visibility = View.GONE
+        }
+
+
+
+
+    }
+    // customer card
+    private fun showCustomerCard(customer: Customer) {
+        Log.d("CustomerMap", "Clicked on: ${customer.name}")
+        customerCard.visibility = View.VISIBLE
+        customerName.text = customer.name
+        customerBusiness.text = customer.business
+        customerlatlng.text = customer.location // shows LatLng
+
+        if (customer.imageUrl.isNotBlank()) {
+            Glide.with(requireContext())
+                .load(customer.imageUrl)
+                .placeholder(R.drawable.logo)
+                .into(customerImage)
+        } else {
+            customerImage.setImageResource(R.drawable.logo)
+        }
+        customerImage.setOnClickListener {
+            val intent = Intent(requireContext(), FullScreenImage::class.java)
+            intent.putExtra("image_url", customer.imageUrl)
+            startActivity(intent)
+        }
+    }
+
+    // using red  marker
+    fun resizeMarker(context: Context, drawableRes: Int, width: Int, height: Int): BitmapDescriptor {
+        val drawable = ContextCompat.getDrawable(context, drawableRes)!!
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        drawable.setBounds(0, 0, canvas.width, canvas.height)
+        drawable.draw(canvas)
+        return BitmapDescriptorFactory.fromBitmap(bitmap)
+    }
+    // handling  search fucntion
+    fun searchCustomer(query: String) {
+        if (query.isBlank()) return
+
+        val matchedEntry = markerMap.entries.find { entry ->
+            entry.key.contains(query.trim().lowercase())
+        }
+
+        if (matchedEntry != null) {
+            val marker = matchedEntry.value
+            googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(marker.position, 15f))
+            marker.showInfoWindow()
+        } else {
+            Toast.makeText(requireContext(), "Customer not found", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        customersListener?.remove()
+    }
+}

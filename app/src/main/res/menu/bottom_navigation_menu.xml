@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/nav_map"
+        android:icon="@drawable/location_pin_24"
+        android:title="Map" />
+    <item
+        android:id="@+id/nav_add_customer"
+        android:icon="@drawable/add_circle_24"
+        android:title="Add Customer" />
+    <item
+        android:id="@+id/nav_customer_list"
+        android:icon="@drawable/list_24"
+        android:title="Customer List" />
+</menu>
