@@ -158,7 +158,10 @@ class CustomerCardAdapter(
                 fragmentActivity?.let {
                     val dialog = DeliveryFormDialog(getItem(holder.adapterPosition)) { actionType ->
                         val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-                        val todayDate = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+                        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
+                            timeZone = java.util.TimeZone.getTimeZone("Asia/Kolkata")
+                        }
+                        val todayDate = sdf.format(Date())
 
                         // Fetch Agent Name from local cache (Instantly available)
                         val prefs = context.getSharedPreferences("EggBucketPrefs", Context.MODE_PRIVATE)
@@ -176,6 +179,8 @@ class CustomerCardAdapter(
                             "status" to "reached",
                             "time" to FieldValue.serverTimestamp()
                         )
+                        // Also update todayOverride status so it is no longer hidden (OFF)
+                        updateData["todayOverride.status"] = "reached"
 
                         customerRef.update(updateData)
                         Toast.makeText(context, "Status Updated locally! Syncing in background.", Toast.LENGTH_SHORT).show()

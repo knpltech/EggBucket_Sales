@@ -166,7 +166,10 @@
 
         private fun fetchCustomersAndMark() {
             val db = FirebaseFirestore.getInstance()
-            val todayDate = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
+                timeZone = java.util.TimeZone.getTimeZone("Asia/Kolkata")
+            }
+            val todayDate = sdf.format(Date())
 
             customersListener?.remove()
             // Cleanup existing listeners
@@ -190,6 +193,7 @@
                     
                     val newCustomers = mutableListOf<Customer>()
                     val processedUids = mutableSetOf<String>()
+                    val coordinateCounts = mutableMapOf<LatLng, Int>()
                     
                     // First, identify which markers to keep/update/add
                     for (doc in snapshot.documents) {
@@ -200,6 +204,10 @@
                         val phone = doc.getString("phone") ?: "N/A"
                         val imageUrl = doc.getString("imageUrl") ?: ""
                         
+                        val last8Days = doc.get("last8Days") as? Map<*, *>
+                        val todayData = last8Days?.get(todayDate) as? Map<*, *>
+                        val status = todayData?.get("status") as? String
+
                         val todayOverride = doc.get("todayOverride") as? Map<*, *>
                         var showOnMap = true
                         if (todayOverride != null && todayOverride["date"] == todayDate && 
@@ -207,14 +215,28 @@
                             showOnMap = false
                         }
 
+                        if (status == "delivered" || status == "reached") {
+                            showOnMap = true
+                        }
+
                         val latLng = parseLatLng(location)
                         if (latLng != null && showOnMap) {
                             processedUids.add(uid)
-                            
-                            val last8Days = doc.get("last8Days") as? Map<*, *>
-                            val todayData = last8Days?.get(todayDate) as? Map<*, *>
-                            val status = todayData?.get("status") as? String
 
+                            val count = coordinateCounts[latLng] ?: 0
+                            coordinateCounts[latLng] = count + 1
+
+                            val finalLatLng = if (count > 0) {
+                                val angle = count * (2 * Math.PI / 8.0)
+                                val radius = 0.00006 * count
+                                LatLng(
+                                    latLng.latitude + radius * Math.sin(angle),
+                                    latLng.longitude + radius * Math.cos(angle)
+                                )
+                            } else {
+                                latLng
+                            }
+                            
                             val customer = Customer(uid, name, business, phone, imageUrl, "", 0, location, true, status)
                             newCustomers.add(customer)
 
@@ -229,13 +251,13 @@
                                 
                                 val marker = if (activeMarkers.containsKey(uid)) {
                                     activeMarkers[uid]!!.apply {
-                                        position = latLng
+                                        position = finalLatLng
                                         title = name
                                         setIcon(icon)
                                     }
                                 } else {
                                     googleMap.addMarker(MarkerOptions()
-                                        .position(latLng)
+                                        .position(finalLatLng)
                                         .title(name)
                                         .icon(icon)
                                         .anchor(0.5f, 0.5f))?.also {

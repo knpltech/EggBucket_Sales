@@ -162,7 +162,10 @@ class DeliveryDetailsActivity : AppCompatActivity() {
         binding.btnSubmit.isEnabled = false
 
         val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-        val todayDate = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
+            timeZone = TimeZone.getTimeZone("Asia/Kolkata")
+        }
+        val todayDate = sdf.format(Date())
 
         // Fetch Agent Name from local cache (Instantly available)
         val prefs = getSharedPreferences("EggBucketPrefs", Context.MODE_PRIVATE)
@@ -184,9 +187,14 @@ class DeliveryDetailsActivity : AppCompatActivity() {
             "upiAmount" to upi,
             "totalAmount" to (cash + upi)
         )
+        // Also update todayOverride status so it is no longer hidden (OFF)
+        updateData["todayOverride.status"] = "delivered"
 
         customerRef.update(updateData)
         Toast.makeText(this, "Delivery submitted! Syncing in background.", Toast.LENGTH_SHORT).show()
-        finish()
+        
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            finish()
+        }, 500)
     }
 }

@@ -107,7 +107,10 @@ class CustomerMap : Fragment(), OnMapReadyCallback {
     // fetching customer from firestore
     private fun fetchCustomersAndMark() {
         val db = FirebaseFirestore.getInstance()
-        val todayDate = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).apply {
+            timeZone = java.util.TimeZone.getTimeZone("Asia/Kolkata")
+        }
+        val todayDate = sdf.format(java.util.Date())
         customersListener?.remove()
         customersListener = db.collection("customers")
             .addSnapshotListener { snapshot, error ->
@@ -118,6 +121,7 @@ class CustomerMap : Fragment(), OnMapReadyCallback {
                 markerMap.clear()
 
                 var firstLatLng: LatLng? = null
+                val coordinateCounts = mutableMapOf<LatLng, Int>()
 
                 for (doc in snapshot.documents) {
                     val uid=doc.id
@@ -145,9 +149,22 @@ class CustomerMap : Fragment(), OnMapReadyCallback {
                     val position = parseLatLng(location)
 
                     if (position != null) {
+                        val count = coordinateCounts[position] ?: 0
+                        coordinateCounts[position] = count + 1
+
+                        val finalPosition = if (count > 0) {
+                            val angle = count * (2 * Math.PI / 8.0)
+                            val radius = 0.00006 * count
+                            LatLng(
+                                position.latitude + radius * Math.sin(angle),
+                                position.longitude + radius * Math.cos(angle)
+                            )
+                        } else {
+                            position
+                        }
 
                         if (firstLatLng == null) {
-                            firstLatLng = position
+                            firstLatLng = finalPosition
                         }
 
                         val customer = Customer(
@@ -161,7 +178,7 @@ class CustomerMap : Fragment(), OnMapReadyCallback {
 
                         val marker = googleMap.addMarker(
                             MarkerOptions()
-                                .position(position)
+                                .position(finalPosition)
                                 .title(name)
                                 .snippet("Business: $business")
                                 .icon(resizeMarker(requireContext(), R.drawable.baseline_location_pin_24, 80, 80))
