@@ -262,7 +262,6 @@
                         val currentLatLng = currentUserLocation?:LatLng(0.0,0.0)
                         customerAdapter = CustomerCardAdapter(
                             requireContext(),
-                            allCustomers,
                             currentLatLng,
                             onCustomerSelected = { customer, latLng ->
                                 lastSelectedCustomer = customer
@@ -291,9 +290,8 @@
                                 }
                             }
                         })
-                    } else {
-                        customerAdapter.notifyDataSetChanged()
                     }
+                    customerAdapter.submitList(allCustomers.toList())
 
                     if (allCustomers.isNotEmpty()) {
                         viewPager?.visibility = View.VISIBLE

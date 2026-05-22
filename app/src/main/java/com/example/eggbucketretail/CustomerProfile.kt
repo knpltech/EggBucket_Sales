@@ -96,7 +96,9 @@ class CustomerProfile : AppCompatActivity() {
                 }
 
                 binding.rvHistory.layoutManager = LinearLayoutManager(this)
-                binding.rvHistory.adapter = DeliveryHistoryAdapter(historyList)
+                val adapter = DeliveryHistoryAdapter()
+                binding.rvHistory.adapter = adapter
+                adapter.submitList(historyList)
             }
     }
 }

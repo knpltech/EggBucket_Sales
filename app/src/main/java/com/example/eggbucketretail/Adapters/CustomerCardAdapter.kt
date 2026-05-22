@@ -34,13 +34,25 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
+
 class CustomerCardAdapter(
     private val context: Context,
-    private val customers: List<Customer>,
     private var currentUserLocation: LatLng?,
     private val onCustomerSelected: (Customer, LatLng) -> Unit,
     private val onImageClick: (String) -> Unit
-) : RecyclerView.Adapter<CustomerCardAdapter.CardViewHolder>() {
+) : ListAdapter<Customer, CustomerCardAdapter.CardViewHolder>(CustomerDiffCallback()) {
+
+    class CustomerDiffCallback : DiffUtil.ItemCallback<Customer>() {
+        override fun areItemsTheSame(oldItem: Customer, newItem: Customer): Boolean {
+            return oldItem.uid == newItem.uid
+        }
+
+        override fun areContentsTheSame(oldItem: Customer, newItem: Customer): Boolean {
+            return oldItem == newItem
+        }
+    }
 
 
     inner class CardViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -58,10 +70,10 @@ class CustomerCardAdapter(
         return CardViewHolder(view)
     }
 
-    override fun getItemCount(): Int = customers.size
+    override fun getItemCount(): Int = currentList.size
 
     override fun onBindViewHolder(holder: CardViewHolder, position: Int) {
-        val customer = customers[position]
+        val customer = getItem(position)
 
         // Set customer name and business
         holder.customerName.text = customer.name
@@ -144,7 +156,7 @@ class CustomerCardAdapter(
             if (distanceInMeters <= 50f) {
                 val fragmentActivity = context as? FragmentActivity
                 fragmentActivity?.let {
-                    val dialog = DeliveryFormDialog(customers[holder.adapterPosition]) { actionType ->
+                    val dialog = DeliveryFormDialog(getItem(holder.adapterPosition)) { actionType ->
                         val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
                         val todayDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
 
@@ -245,7 +257,7 @@ class CustomerCardAdapter(
         val distanceMoved = result[0]
         if (distanceMoved > 10) {
             currentUserLocation = newLocation
-            notifyItemRangeChanged(0, customers.size)
+            notifyItemRangeChanged(0, itemCount)
         }
     }
 

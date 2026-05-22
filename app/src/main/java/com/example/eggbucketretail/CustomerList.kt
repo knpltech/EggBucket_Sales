@@ -36,7 +36,7 @@ class CustomerList : Fragment() {
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        adapter = CustomerAdapter(customers) { customer ->
+        adapter = CustomerAdapter { customer ->
             val intent = Intent(requireContext(), CustomerProfile::class.java)
             intent.putExtra("customer", customer)
             startActivity(intent)
@@ -65,7 +65,7 @@ class CustomerList : Fragment() {
                 }
                 customers.clear()
                 customers.addAll(list)
-                adapter.updateList(customers)
+                adapter.submitList(customers.toList()) // Pass a copy
             }
             .addOnFailureListener {
                 // handle failure if needed
@@ -76,13 +76,17 @@ class CustomerList : Fragment() {
     }
 
     fun searchCustomer(query: String) {
-        val filtered = customers.filter {
-            it.name.contains(query, ignoreCase = true) ||
-                    it.business.contains(query, ignoreCase = true) ||
-                    it.phone.contains(query, ignoreCase = true)
+        val filtered = if (query.isEmpty()) {
+            customers
+        } else {
+            customers.filter {
+                it.name.contains(query, ignoreCase = true) ||
+                        it.business.contains(query, ignoreCase = true) ||
+                        it.phone.contains(query, ignoreCase = true)
+            }
         }
 
-        adapter.updateList(filtered)
+        adapter.submitList(filtered.toList())
     }
 
 

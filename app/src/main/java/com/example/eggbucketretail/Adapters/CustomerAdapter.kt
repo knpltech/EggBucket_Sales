@@ -12,10 +12,22 @@ import com.bumptech.glide.load.engine.GlideException
 import com.example.eggbucketretail.Models.Customer
 import com.example.eggbucketretail.R
 
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
+
 class CustomerAdapter(
-    private var customers: List<Customer>,
     private val onItemClick: (Customer) -> Unit
-) : RecyclerView.Adapter<CustomerAdapter.CustomerViewHolder>() {
+) : ListAdapter<Customer, CustomerAdapter.CustomerViewHolder>(CustomerDiffCallback()) {
+
+    class CustomerDiffCallback : DiffUtil.ItemCallback<Customer>() {
+        override fun areItemsTheSame(oldItem: Customer, newItem: Customer): Boolean {
+            return oldItem.uid == newItem.uid
+        }
+
+        override fun areContentsTheSame(oldItem: Customer, newItem: Customer): Boolean {
+            return oldItem == newItem
+        }
+    }
 
     inner class CustomerViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val customerName: TextView = itemView.findViewById(R.id.customerName)
@@ -68,13 +80,8 @@ class CustomerAdapter(
     }
 
     override fun onBindViewHolder(holder: CustomerViewHolder, position: Int) {
-        holder.bind(customers[position])
+        holder.bind(getItem(position))
     }
 
-    override fun getItemCount(): Int = customers.size
-
-    fun updateList(newList: List<Customer>) {
-        customers = newList
-        notifyDataSetChanged()
-    }
+    override fun getItemCount(): Int = currentList.size
 }

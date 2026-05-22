@@ -5,6 +5,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.core.content.ContextCompat
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.example.eggbucketretail.R
 import java.util.Locale
@@ -18,8 +20,18 @@ data class DeliveryHistory(
     val reason: String = ""
 )
 
-class DeliveryHistoryAdapter(private val historyList: List<DeliveryHistory>) :
-    RecyclerView.Adapter<DeliveryHistoryAdapter.ViewHolder>() {
+class DeliveryHistoryAdapter :
+    ListAdapter<DeliveryHistory, DeliveryHistoryAdapter.ViewHolder>(DeliveryHistoryDiffCallback()) {
+
+    class DeliveryHistoryDiffCallback : DiffUtil.ItemCallback<DeliveryHistory>() {
+        override fun areItemsTheSame(oldItem: DeliveryHistory, newItem: DeliveryHistory): Boolean {
+            return oldItem.date == newItem.date && oldItem.status == newItem.status
+        }
+
+        override fun areContentsTheSame(oldItem: DeliveryHistory, newItem: DeliveryHistory): Boolean {
+            return oldItem == newItem
+        }
+    }
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val tvDate: TextView = view.findViewById(R.id.tvDate)
@@ -37,7 +49,7 @@ class DeliveryHistoryAdapter(private val historyList: List<DeliveryHistory>) :
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        val item = historyList[position]
+        val item = getItem(position)
         holder.tvDate.text = item.date
         holder.tvStatus.text = item.status.uppercase()
         holder.tvAgent.text = "By: ${item.agentName}"
@@ -71,6 +83,4 @@ class DeliveryHistoryAdapter(private val historyList: List<DeliveryHistory>) :
             }
         }
     }
-
-    override fun getItemCount() = historyList.size
 }
