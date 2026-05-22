@@ -121,10 +121,12 @@ class CustomerMap : Fragment(), OnMapReadyCallback {
                 markerMap.clear()
 
                 var firstLatLng: LatLng? = null
+                var focusLatLng: LatLng? = null
+                var focusUid: String? = null
                 val coordinateCounts = mutableMapOf<LatLng, Int>()
 
                 for (doc in snapshot.documents) {
-                    val uid=doc.id
+                    val uid = doc.id
                     val name = doc.getString("name") ?: continue
                     val location = doc.getString("location") ?: continue
                     val business = doc.getString("business") ?: "Unknown"
@@ -138,9 +140,12 @@ class CustomerMap : Fragment(), OnMapReadyCallback {
                         val overrideDate = todayOverride["date"] as? String
                         val overrideStatus = todayOverride["status"] as? String
                         
-                        // Only hide if the override is for TODAY and explicitly set to "OFF"
-                        if (overrideDate == todayDate && overrideStatus?.uppercase() == "OFF") {
-                            showOnMap = false
+                        if (overrideDate == todayDate) {
+                            if (overrideStatus?.uppercase() == "OFF") {
+                                showOnMap = false
+                            } else if (overrideStatus?.uppercase() == "ON") {
+                                focusUid = uid
+                            }
                         }
                     }
 
@@ -161,6 +166,10 @@ class CustomerMap : Fragment(), OnMapReadyCallback {
                             )
                         } else {
                             position
+                        }
+
+                        if (uid == focusUid) {
+                            focusLatLng = finalPosition
                         }
 
                         if (firstLatLng == null) {
@@ -194,8 +203,18 @@ class CustomerMap : Fragment(), OnMapReadyCallback {
                 }
 
                 googleMap.setOnMapLoadedCallback {
-                    firstLatLng?.let {
-                        googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(it, 10f))
+                    val targetLatLng = focusLatLng ?: firstLatLng
+                    val targetZoom = if (focusLatLng != null) 15f else 10f
+                    targetLatLng?.let {
+                        googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(it, targetZoom))
+                        if (focusUid != null) {
+                            val marker = markerMap[focusUid.lowercase()]
+                            marker?.showInfoWindow()
+                            val customer = allCustomers.find { c -> c.uid == focusUid }
+                            customer?.let { c ->
+                                showCustomerCard(c)
+                            }
+                        }
                     } ?: Toast.makeText(requireContext(), "No valid customer location found", Toast.LENGTH_SHORT).show()
                 }
             }

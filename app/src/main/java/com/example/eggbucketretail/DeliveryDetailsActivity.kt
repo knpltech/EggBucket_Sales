@@ -17,6 +17,7 @@ import com.example.eggbucketretail.databinding.ActivityDeliveryDetailsBinding
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Source
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -43,7 +44,7 @@ class DeliveryDetailsActivity : AppCompatActivity() {
 
     private fun setupUI() {
         setSupportActionBar(binding.toolbar)
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        supportActionBar?.setDisplayHomeAsUpEnabled(false)
         supportActionBar?.title = ""
 
         customer?.let {
@@ -63,7 +64,6 @@ class DeliveryDetailsActivity : AppCompatActivity() {
     }
 
     private fun setupListeners() {
-        binding.toolbar.setNavigationOnClickListener { finish() }
         binding.btnBack.setOnClickListener { finish() }
 
         binding.btnAddQuantity.setOnClickListener {
@@ -174,23 +174,59 @@ class DeliveryDetailsActivity : AppCompatActivity() {
         val db = FirebaseFirestore.getInstance()
         val customerRef = db.collection("customers").document(uid)
 
-        // UPDATE DATA DIRECTLY: This skips the network check and writes to the local database immediately.
-        // Firestore will sync it to the cloud later in the background.
-        val updateData = hashMapOf<String, Any>()
-        updateData["last8Days.$todayDate"] = hashMapOf(
-            "agentId" to currentUserId,
-            "agentName" to agentName,
-            "status" to "delivered",
-            "time" to FieldValue.serverTimestamp(),
-            "quantity" to quantity,
-            "cashAmount" to cash,
-            "upiAmount" to upi,
-            "totalAmount" to (cash + upi)
-        )
-        // Also update todayOverride status so it is no longer hidden (OFF)
-        updateData["todayOverride.status"] = "delivered"
+        // UPDATE DATA DIRECTLY: Read from cache, perform pruning, and save both to the map and subcollection
+        customerRef.get(Source.CACHE).addOnCompleteListener { task ->
+            val updateData = hashMapOf<String, Any>()
+            val newEntry = hashMapOf(
+                "agentId" to currentUserId,
+                "agentName" to agentName,
+                "status" to "delivered",
+                "time" to FieldValue.serverTimestamp(),
+                "quantity" to quantity,
+                "cashAmount" to cash,
+                "upiAmount" to upi,
+                "totalAmount" to (cash + upi)
+            )
 
-        customerRef.update(updateData)
+            if (task.isSuccessful && task.result != null) {
+                val document = task.result
+                val last8Days = document.get("last8Days") as? Map<String, Any>
+                val updatedLast8Days = mutableMapOf<String, Any>()
+
+                if (last8Days != null) {
+                    for ((dateKey, value) in last8Days) {
+                        if (!isOlderThan30Days(dateKey, todayDate) && dateKey != todayDate) {
+                            updatedLast8Days[dateKey] = value
+                        }
+                    }
+                }
+                updatedLast8Days[todayDate] = newEntry
+                updateData["last8Days"] = updatedLast8Days
+            } else {
+                updateData["last8Days.$todayDate"] = newEntry
+            }
+
+            updateData["todayOverride.status"] = "delivered"
+
+            customerRef.update(updateData)
+
+            // Sync with deliveries subcollection
+            val deliveriesCollectionRef = customerRef.collection("deliveries")
+            deliveriesCollectionRef.document(todayDate).set(newEntry)
+
+            // Clean up the subcollection older than 30 days
+            deliveriesCollectionRef.get(Source.CACHE).addOnCompleteListener { subcollectionTask ->
+                if (subcollectionTask.isSuccessful && subcollectionTask.result != null) {
+                    for (doc in subcollectionTask.result.documents) {
+                        val docId = doc.id
+                        if (isOlderThan30Days(docId, todayDate)) {
+                            deliveriesCollectionRef.document(docId).delete()
+                        }
+                    }
+                }
+            }
+        }
+
         Toast.makeText(this, "Delivery submitted! Syncing in background.", Toast.LENGTH_SHORT).show()
         
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({

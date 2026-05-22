@@ -199,6 +199,8 @@
                     val newCustomers = mutableListOf<Customer>()
                     val processedUids = mutableSetOf<String>()
                     val coordinateCounts = mutableMapOf<LatLng, Int>()
+                    var focusUid: String? = null
+                    var focusLatLng: LatLng? = null
                     
                     // First, identify which markers to keep/update/add
                     for (doc in snapshot.documents) {
@@ -215,12 +217,16 @@
 
                         val todayOverride = doc.get("todayOverride") as? Map<*, *>
                         var showOnMap = true
-                        if (todayOverride != null && todayOverride["date"] == todayDate && 
-                            (todayOverride["status"] as? String)?.uppercase() == "OFF") {
-                            showOnMap = false
+                        if (todayOverride != null && todayOverride["date"] == todayDate) {
+                            val overrideStatus = (todayOverride["status"] as? String)?.uppercase()
+                            if (overrideStatus == "OFF") {
+                                showOnMap = false
+                            } else if (overrideStatus == "ON") {
+                                focusUid = uid
+                            }
                         }
 
-                        if (status == "delivered" || status == "reached") {
+                        if (showOnMap && (status == "delivered" || status == "reached")) {
                             showOnMap = true
                         }
 
@@ -240,6 +246,10 @@
                                 )
                             } else {
                                 latLng
+                            }
+                            
+                            if (uid == focusUid) {
+                                focusLatLng = finalLatLng
                             }
                             
                             val customer = Customer(uid, name, business, phone, imageUrl, "", 0, location, true, status)
@@ -338,7 +348,18 @@
 
                     if (allCustomers.isNotEmpty()) {
                         viewPager?.visibility = View.VISIBLE
-                        if (isFirstCustomerLoad) {
+                        val focusIndex = if (focusUid != null) allCustomers.indexOfFirst { it.uid == focusUid } else -1
+                        if (focusIndex >= 0) {
+                            viewPager?.currentItem = focusIndex
+                            isFirstCustomerLoad = false
+                            
+                            focusLatLng?.let {
+                                googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(it, 17f))
+                            }
+                            viewPager?.postDelayed({
+                                activeMarkers[focusUid]?.showInfoWindow()
+                            }, 300)
+                        } else if (isFirstCustomerLoad) {
                             val targetIndex = if (oldPosition < allCustomers.size) oldPosition else 0
                             viewPager?.currentItem = targetIndex
                             isFirstCustomerLoad = false
