@@ -107,7 +107,7 @@ class CustomerMap : Fragment(), OnMapReadyCallback {
     // fetching customer from firestore
     private fun fetchCustomersAndMark() {
         val db = FirebaseFirestore.getInstance()
-        val todayDate = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
+        val todayDate = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
         customersListener?.remove()
         customersListener = db.collection("customers")
             .addSnapshotListener { snapshot, error ->
@@ -142,16 +142,9 @@ class CustomerMap : Fragment(), OnMapReadyCallback {
 
                     if (!showOnMap) continue
 
-                    val latLng = location
-                        .replace("Lat:", "")
-                        .replace("Lng:", "")
-                        .split(",")
-                        .map { it.trim().toDoubleOrNull() }
+                    val position = parseLatLng(location)
 
-                    if (latLng.size == 2 && latLng[0] != null && latLng[1] != null) {
-                        val lat = latLng[0]!!
-                        val lng = latLng[1]!!
-                        val position = LatLng(lat, lng)
+                    if (position != null) {
 
                         if (firstLatLng == null) {
                             firstLatLng = position
@@ -259,6 +252,26 @@ class CustomerMap : Fragment(), OnMapReadyCallback {
             marker.showInfoWindow()
         } else {
             Toast.makeText(requireContext(), "Customer not found", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun parseLatLng(location: String): LatLng? {
+        return try {
+            val pattern = Regex("-?\\d+\\.\\d+")
+            val matches = pattern.findAll(location).map { it.value.toDoubleOrNull() }.toList()
+            if (matches.size >= 2 && matches[0] != null && matches[1] != null) {
+                LatLng(matches[0]!!, matches[1]!!)
+            } else {
+                val parts = location.split(",").map { it.replace("[^0-9.-]".toRegex(), "").toDoubleOrNull() }
+                if (parts.size >= 2 && parts[0] != null && parts[1] != null) {
+                    LatLng(parts[0]!!, parts[1]!!)
+                } else {
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("LocationParser", "Failed to parse location: $location", e)
+            null
         }
     }
 

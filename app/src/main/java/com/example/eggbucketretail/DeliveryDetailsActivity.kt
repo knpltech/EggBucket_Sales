@@ -153,80 +153,40 @@ class DeliveryDetailsActivity : AppCompatActivity() {
             return
         }
 
+        val uid = customer?.uid ?: run {
+            Toast.makeText(this, "Error: Customer data missing", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         binding.progressBar.visibility = View.VISIBLE
         binding.btnSubmit.isEnabled = false
 
-        val uid = customer?.uid ?: return
         val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-        val todayDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        val todayDate = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
 
-        FirebaseFirestore.getInstance().collection("DeliveryMan").document(currentUserId).get()
-            .addOnSuccessListener { agentDoc ->
-                val agentName = agentDoc.getString("name") ?: "Unknown"
+        // Fetch Agent Name from local cache (Instantly available)
+        val prefs = getSharedPreferences("EggBucketPrefs", Context.MODE_PRIVATE)
+        val agentName = prefs.getString("agent_name", "Unknown") ?: "Unknown"
 
-                FirebaseFirestore.getInstance().collection("customers").document(uid).get()
-                    .addOnSuccessListener { customerDoc ->
-                        val last8Days = customerDoc.get("last8Days") as? Map<String, Any> ?: emptyMap()
-                        val updateData = hashMapOf<String, Any>()
+        val db = FirebaseFirestore.getInstance()
+        val customerRef = db.collection("customers").document(uid)
 
-                        // Cleanup logic: keep only dates from the last 8 days
-                        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-                        val calendar = Calendar.getInstance()
-                        calendar.add(Calendar.DAY_OF_YEAR, -8)
-                        val thresholdDate = calendar.time
+        // UPDATE DATA DIRECTLY: This skips the network check and writes to the local database immediately.
+        // Firestore will sync it to the cloud later in the background.
+        val updateData = hashMapOf<String, Any>()
+        updateData["last8Days.$todayDate"] = hashMapOf(
+            "agentId" to currentUserId,
+            "agentName" to agentName,
+            "status" to "delivered",
+            "time" to FieldValue.serverTimestamp(),
+            "quantity" to quantity,
+            "cashAmount" to cash,
+            "upiAmount" to upi,
+            "totalAmount" to (cash + upi)
+        )
 
-                        last8Days.keys.forEach { dateKey ->
-                            try {
-                                val entryDate = sdf.parse(dateKey)
-                                if (entryDate != null && entryDate.before(thresholdDate)) {
-                                    updateData["last8Days.$dateKey"] = FieldValue.delete()
-                                }
-                            } catch (e: Exception) {
-                                // Ignore unparseable dates
-                            }
-                        }
-
-                        // Add today's delivery data
-                        updateData["last8Days.$todayDate"] = hashMapOf(
-                            "agentId" to currentUserId,
-                            "agentName" to agentName,
-                            "status" to "delivered",
-                            "time" to FieldValue.serverTimestamp(),
-                            "quantity" to quantity,
-                            "cashAmount" to cash,
-                            "upiAmount" to upi,
-                            "totalAmount" to (cash + upi)
-                        )
-
-                        FirebaseFirestore.getInstance()
-                            .collection("customers")
-                            .document(uid)
-                            .update(updateData)
-                            .addOnSuccessListener {
-                                Toast.makeText(this, "Delivery updated successfully!", Toast.LENGTH_SHORT).show()
-                                finish()
-                            }
-                            .addOnFailureListener { e ->
-                                binding.progressBar.visibility = View.GONE
-                                binding.btnSubmit.isEnabled = true
-                                Toast.makeText(this, "Failed to update customer: ${e.message}", Toast.LENGTH_LONG).show()
-                            }
-                    }
-                    .addOnFailureListener { e ->
-                        binding.progressBar.visibility = View.GONE
-                        binding.btnSubmit.isEnabled = true
-                        Toast.makeText(this, "Failed to fetch customer: ${e.message}", Toast.LENGTH_SHORT).show()
-                    }
-            }
-            .addOnFailureListener {
-                binding.progressBar.visibility = View.GONE
-                binding.btnSubmit.isEnabled = true
-                Toast.makeText(this, "Failed to fetch agent info", Toast.LENGTH_SHORT).show()
-            }
-            .addOnFailureListener {
-                binding.progressBar.visibility = View.GONE
-                binding.btnSubmit.isEnabled = true
-                Toast.makeText(this, "Failed to fetch agent info", Toast.LENGTH_SHORT).show()
-            }
+        customerRef.update(updateData)
+        Toast.makeText(this, "Delivery submitted! Syncing in background.", Toast.LENGTH_SHORT).show()
+        finish()
     }
 }

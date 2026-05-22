@@ -57,6 +57,13 @@
         private var hasFetchedCustomers = false
         private var isFirstLoad = true
         private val activeMarkers = mutableMapOf<String, Marker>()
+        private val markerIcons = mutableMapOf<Int, BitmapDescriptor>()
+
+        private fun getCachedIcon(context: Context, resId: Int): BitmapDescriptor {
+            return markerIcons.getOrPut(resId) {
+                resizeMarker(context, resId, 100, 100)
+            }
+        }
 
         override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
             return inflater.inflate(R.layout.fragment_customer_map_for_delivery, container, false)
@@ -123,6 +130,8 @@
             googleMap = map
             googleMap.uiSettings.isZoomControlsEnabled = true
             mapReady = true
+            
+            view?.findViewById<ProgressBar>(R.id.map_loading_progress)?.visibility = View.GONE
 
             if (locationPermissionGranted && !hasFetchedCustomers) {
                 fetchCustomersAndMark()
@@ -132,7 +141,7 @@
                 == PackageManager.PERMISSION_GRANTED) {
 
                 googleMap.isMyLocationEnabled = true
-                googleMap.uiSettings.isMyLocationButtonEnabled = true  // Optional, usually true by default
+                googleMap.uiSettings.isMyLocationButtonEnabled = true
 
             } else {
                 ActivityCompat.requestPermissions(
@@ -143,7 +152,8 @@
             }
             googleMap.setOnMarkerClickListener { marker ->
                 marker.showInfoWindow()
-                allCustomers.indexOfFirst { it.name == marker.title }.takeIf { it >= 0 }?.let { position ->
+                val uid = marker.tag as? String ?: ""
+                allCustomers.indexOfFirst { it.uid == uid }.takeIf { it >= 0 }?.let { position ->
                     viewPager?.currentItem = position
                     lastSelectedCustomerPosition = marker.position
                     lastSelectedCustomer = allCustomers[position]
@@ -156,33 +166,32 @@
 
         private fun fetchCustomersAndMark() {
             val db = FirebaseFirestore.getInstance()
-            val todayDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+            val todayDate = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
 
             customersListener?.remove()
+            // Cleanup existing listeners
             deliveryListeners.values.forEach { it.remove() }
             deliveryListeners.clear()
 
             customersListener = db.collection("customers")
-                .addSnapshotListener { snapshot, _ ->
-                    if (snapshot == null) return@addSnapshotListener
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null) {
+                        Log.e("MapError", "Listen failed.", error)
+                        return@addSnapshotListener
+                    }
+                    
+                    // Don't clear if we have no data and it's just a cache miss
+                    if (snapshot == null || (snapshot.isEmpty && snapshot.metadata.isFromCache)) {
+                        return@addSnapshotListener
+                    }
                     
                     val oldPosition = viewPager?.currentItem ?: 0
+                    val currentContext = context ?: return@addSnapshotListener
                     
-                    allCustomers.clear()
-                    markerMap.clear()
+                    val newCustomers = mutableListOf<Customer>()
+                    val processedUids = mutableSetOf<String>()
                     
-                    val currentUidSet = snapshot.documents.map { it.id }.toSet()
-                    val iterator = activeMarkers.entries.iterator()
-                    while (iterator.hasNext()) {
-                        val entry = iterator.next()
-                        if (!currentUidSet.contains(entry.key)) {
-                            entry.value.remove()
-                            iterator.remove()
-                        }
-                    }
-
-                    var firstLatLng: LatLng? = null
-
+                    // First, identify which markers to keep/update/add
                     for (doc in snapshot.documents) {
                         val uid = doc.id
                         val name = doc.getString("name") ?: continue
@@ -191,85 +200,85 @@
                         val phone = doc.getString("phone") ?: "N/A"
                         val imageUrl = doc.getString("imageUrl") ?: ""
                         
-                        var showOnMap = true
                         val todayOverride = doc.get("todayOverride") as? Map<*, *>
-                        
-                        if (todayOverride != null) {
-                            val overrideDate = todayOverride["date"] as? String
-                            val overrideStatus = todayOverride["status"] as? String
-                            if (overrideDate == todayDate && overrideStatus?.uppercase() == "OFF") {
-                                showOnMap = false
-                            }
-                        }
-
-                        if (!showOnMap) {
-                            activeMarkers[uid]?.remove()
-                            activeMarkers.remove(uid)
-                            continue
+                        var showOnMap = true
+                        if (todayOverride != null && todayOverride["date"] == todayDate && 
+                            (todayOverride["status"] as? String)?.uppercase() == "OFF") {
+                            showOnMap = false
                         }
 
                         val latLng = parseLatLng(location)
-
-                        latLng?.let { position ->
-                            if (firstLatLng == null) firstLatLng = position
-
+                        if (latLng != null && showOnMap) {
+                            processedUids.add(uid)
+                            
                             val last8Days = doc.get("last8Days") as? Map<*, *>
                             val todayData = last8Days?.get(todayDate) as? Map<*, *>
                             val status = todayData?.get("status") as? String
 
-                            val customer = Customer(
-                                uid = uid,
-                                name = name,
-                                business = business,
-                                phone = phone,
-                                imageUrl = imageUrl,
-                                location = location,
-                                status = status
-                            )
-                            allCustomers.add(customer)
+                            val customer = Customer(uid, name, business, phone, imageUrl, "", 0, location, true, status)
+                            newCustomers.add(customer)
 
-                            val iconRes = when (status) {
-                                "delivered" -> R.drawable.green_marker
-                                "reached" -> R.drawable.orangemarker
-                                else -> R.drawable.baseline_location_pin_24
-                            }
-                            val defaultIcon = resizeMarker(requireContext(), iconRes, 80, 80)
-                            
-                            val marker = if (activeMarkers.containsKey(uid)) {
-                                val existingMarker = activeMarkers[uid]!!
-                                existingMarker.position = position
-                                existingMarker.title = name
-                                existingMarker.setIcon(defaultIcon)
-                                existingMarker
-                            } else {
-                                val newMarker = googleMap.addMarker(
-                                    MarkerOptions().position(position).title(name).icon(defaultIcon)
-                                )
-                                if (newMarker != null) activeMarkers[uid] = newMarker
-                                newMarker
-                            }
+                            try {
+                                val iconRes = when (status) {
+                                    "delivered" -> R.drawable.green_marker
+                                    "reached" -> R.drawable.orangemarker
+                                    else -> R.drawable.baseline_location_pin_24
+                                }
+                                // Use slightly larger size for better visibility
+                                val icon = getCachedIcon(currentContext, iconRes)
+                                
+                                val marker = if (activeMarkers.containsKey(uid)) {
+                                    activeMarkers[uid]!!.apply {
+                                        position = latLng
+                                        title = name
+                                        setIcon(icon)
+                                    }
+                                } else {
+                                    googleMap.addMarker(MarkerOptions()
+                                        .position(latLng)
+                                        .title(name)
+                                        .icon(icon)
+                                        .anchor(0.5f, 0.5f))?.also {
+                                        activeMarkers[uid] = it
+                                    }
+                                }
 
-                            marker?.let {
-                                markerMap[name.lowercase()] = it
-                                markerMap[business.lowercase()] = it
-                                markerMap[uid.lowercase()] = it
-                                markerMap[phone.lowercase()] = it
+                                marker?.let {
+                                    it.tag = uid
+                                    // Update search map
+                                    markerMap[uid.lowercase()] = it
+                                    markerMap[name.lowercase()] = it
+                                }
+                            } catch (e: Exception) {
+                                Log.e("MapError", "Failed to add marker for $name", e)
                             }
                         }
                     }
 
+                    // Remove markers that are no longer present
+                    val it = activeMarkers.entries.iterator()
+                    while (it.hasNext()) {
+                        val entry = it.next()
+                        if (!processedUids.contains(entry.key)) {
+                            entry.value.remove()
+                            it.remove()
+                        }
+                    }
+
+                    allCustomers.clear()
+                    allCustomers.addAll(newCustomers)
+
                     if (!::customerAdapter.isInitialized) {
-                        val currentLatLng = currentUserLocation?:LatLng(0.0,0.0)
+                        val currentLatLng = currentUserLocation ?: LatLng(0.0, 0.0)
                         customerAdapter = CustomerCardAdapter(
-                            requireContext(),
+                            currentContext,
                             currentLatLng,
                             onCustomerSelected = { customer, latLng ->
-                                lastSelectedCustomer = customer
-                                lastSelectedCustomerPosition = latLng
                                 googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 17f))
+                                activeMarkers[customer.uid]?.showInfoWindow()
                             },
                             onImageClick = { imgUrl ->
-                                val intent = Intent(requireContext(), FullScreenImage::class.java)
+                                val intent = Intent(currentContext, FullScreenImage::class.java)
                                 intent.putExtra("image_url", imgUrl)
                                 startActivity(intent)
                             }
@@ -277,15 +286,12 @@
                         viewPager?.adapter = customerAdapter
                         viewPager?.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
                             override fun onPageSelected(position: Int) {
-                                super.onPageSelected(position)
                                 if (position in allCustomers.indices) {
                                     val customer = allCustomers[position]
-                                    searchCustomer(customer.uid)
-                                    parseLatLng(customer.location)?.let { latLng ->
-                                        lastSelectedCustomer = customer
-                                        lastSelectedCustomerPosition = latLng
-                                        googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 17f))
-                                        markerMap[customer.name.lowercase()]?.showInfoWindow()
+                                    val marker = activeMarkers[customer.uid]
+                                    marker?.let {
+                                        googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(it.position, 17f))
+                                        it.showInfoWindow()
                                     }
                                 }
                             }
@@ -295,17 +301,16 @@
 
                     if (allCustomers.isNotEmpty()) {
                         viewPager?.visibility = View.VISIBLE
-                        if (oldPosition < allCustomers.size) {
-                            viewPager?.currentItem = oldPosition
-                        } else {
-                            viewPager?.currentItem = 0
-                            if (isFirstLoad) {
-                                firstLatLng?.let {
-                                    googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(it, 17f))
-                                    markerMap[allCustomers[0].name.lowercase()]?.showInfoWindow()
-                                }
-                                isFirstLoad = false
+                        if (isFirstLoad) {
+                            val targetIndex = if (oldPosition < allCustomers.size) oldPosition else 0
+                            viewPager?.currentItem = targetIndex
+                            parseLatLng(allCustomers[targetIndex].location)?.let { latLng ->
+                                googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 17f))
+                                viewPager?.postDelayed({
+                                    activeMarkers[allCustomers[targetIndex].uid]?.showInfoWindow()
+                                }, 500)
                             }
+                            isFirstLoad = false
                         }
                     } else {
                         viewPager?.visibility = View.GONE
@@ -363,13 +368,17 @@
 
         private fun parseLatLng(location: String): LatLng? {
             return try {
-                if (location.contains("Lat:") && location.contains("Lng:")) {
-                    val lat = location.substringAfter("Lat:").substringBefore(",").trim().toDouble()
-                    val lng = location.substringAfter("Lng:").trim().toDouble()
-                    LatLng(lat, lng)
+                val pattern = Regex("-?\\d+\\.\\d+")
+                val matches = pattern.findAll(location).map { it.value.toDoubleOrNull() }.toList()
+                if (matches.size >= 2 && matches[0] != null && matches[1] != null) {
+                    LatLng(matches[0]!!, matches[1]!!)
                 } else {
-                    val parts = location.split(",").map { it.trim() }
-                    if (parts.size >= 2) LatLng(parts[0].toDouble(), parts[1].toDouble()) else null
+                    val parts = location.split(",").map { it.replace("[^0-9.-]".toRegex(), "").toDoubleOrNull() }
+                    if (parts.size >= 2 && parts[0] != null && parts[1] != null) {
+                        LatLng(parts[0]!!, parts[1]!!)
+                    } else {
+                        null
+                    }
                 }
             } catch (e: Exception) {
                 Log.e("LocationParser", "Failed to parse location: $location", e)
@@ -419,6 +428,11 @@
             customersListener?.remove()
             deliveryListeners.values.forEach { it.remove() }
             deliveryListeners.clear()
+            
+            // CRITICAL: Clear markers from memory so they don't conflict with the next map instance
+            activeMarkers.values.forEach { it.remove() }
+            activeMarkers.clear()
+            markerMap.clear()
 
             if (::fusedLocationClient.isInitialized && ::locationCallback.isInitialized) {
                 fusedLocationClient.removeLocationUpdates(locationCallback)

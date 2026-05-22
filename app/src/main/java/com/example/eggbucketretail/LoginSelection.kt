@@ -47,6 +47,7 @@ class LoginSelection : AppCompatActivity() {
 
         //checking if the user is logged in or not
         if (currentUser != null) {
+            binding.loadingOverlay.visibility = android.view.View.VISIBLE
             val email = currentUser.email
             if (!email.isNullOrEmpty()) {
                 when {

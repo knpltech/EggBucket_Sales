@@ -41,8 +41,20 @@ class DeliveryManMainScreen : AppCompatActivity() {
                 .commit()
         }
 
+        fetchAndCacheAgentInfo()
+    }
 
-
+    private fun fetchAndCacheAgentInfo() {
+        val currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: return
+        com.google.firebase.firestore.FirebaseFirestore.getInstance()
+            .collection("DeliveryMan")
+            .document(currentUserId)
+            .get()
+            .addOnSuccessListener { doc ->
+                val name = doc.getString("name") ?: "Unknown"
+                val prefs = getSharedPreferences("EggBucketPrefs", android.content.Context.MODE_PRIVATE)
+                prefs.edit().putString("agent_name", name).apply()
+            }
     }
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.sales_toolbar_menu, menu)

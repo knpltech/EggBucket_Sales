@@ -158,57 +158,27 @@ class CustomerCardAdapter(
                 fragmentActivity?.let {
                     val dialog = DeliveryFormDialog(getItem(holder.adapterPosition)) { actionType ->
                         val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-                        val todayDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                        val todayDate = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
 
-                        // Fetch Agent Name
-                        FirebaseFirestore.getInstance().collection("DeliveryMan").document(currentUserId).get()
-                            .addOnSuccessListener { agentDoc ->
-                                val agentName = agentDoc.getString("name") ?: "Unknown"
+                        // Fetch Agent Name from local cache (Instantly available)
+                        val prefs = context.getSharedPreferences("EggBucketPrefs", Context.MODE_PRIVATE)
+                        val agentName = prefs.getString("agent_name", "Unknown") ?: "Unknown"
 
-                                FirebaseFirestore.getInstance().collection("customers").document(uid).get()
-                                    .addOnSuccessListener { customerDoc ->
-                                        val last8Days = customerDoc.get("last8Days") as? Map<String, Any> ?: emptyMap()
-                                        val updateData = hashMapOf<String, Any>()
+                        val db = FirebaseFirestore.getInstance()
+                        val customerRef = db.collection("customers").document(uid)
 
-                                        // Cleanup logic: keep only dates from the last 8 days
-                                        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-                                        val calendar = Calendar.getInstance()
-                                        calendar.add(Calendar.DAY_OF_YEAR, -8)
-                                        val thresholdDate = calendar.time
+                        // UPDATE DATA DIRECTLY: Instant and offline-friendly
+                        val updateData = hashMapOf<String, Any>()
+                        updateData["last8Days.$todayDate"] = hashMapOf(
+                            "agentId" to currentUserId,
+                            "agentName" to agentName,
+                            "reason" to actionType,
+                            "status" to "reached",
+                            "time" to FieldValue.serverTimestamp()
+                        )
 
-                                        last8Days.keys.forEach { dateKey ->
-                                            try {
-                                                val entryDate = sdf.parse(dateKey)
-                                                if (entryDate != null && entryDate.before(thresholdDate)) {
-                                                    updateData["last8Days.$dateKey"] = FieldValue.delete()
-                                                }
-                                            } catch (e: Exception) {
-                                                // Ignore unparseable dates
-                                            }
-                                        }
-
-                                        // Add reached status
-                                        updateData["last8Days.$todayDate"] = hashMapOf(
-                                            "agentId" to currentUserId,
-                                            "agentName" to agentName,
-                                            "reason" to actionType,
-                                            "status" to "reached",
-                                            "time" to FieldValue.serverTimestamp()
-                                        )
-
-                                        FirebaseFirestore.getInstance()
-                                            .collection("customers")
-                                            .document(uid)
-                                            .update(updateData)
-                                            .addOnSuccessListener {
-                                                Toast.makeText(context, "Status Updated!", Toast.LENGTH_SHORT).show()
-                                                // Status will be updated via the fragment's snapshot listener
-                                            }
-                                            .addOnFailureListener { e ->
-                                                Toast.makeText(context, "Failed: ${e.message}", Toast.LENGTH_LONG).show()
-                                            }
-                                    }
-                            }
+                        customerRef.update(updateData)
+                        Toast.makeText(context, "Status Updated locally! Syncing in background.", Toast.LENGTH_SHORT).show()
                     }
                     dialog.show(it.supportFragmentManager, "DeliveryFormDialog")
                 }
@@ -278,17 +248,17 @@ class CustomerCardAdapter(
 
     private fun parseLatLng(location: String): LatLng? {
         return try {
-            if (location.contains("Lat:") && location.contains("Lng:")) {
-                val latString = location.substringAfter("Lat:").substringBefore(",").trim()
-                val lngString = location.substringAfter("Lng:").trim()
-                val lat = latString.toDouble()
-                val lng = lngString.toDouble()
-                LatLng(lat, lng)
+            val pattern = Regex("-?\\d+\\.\\d+")
+            val matches = pattern.findAll(location).map { it.value.toDoubleOrNull() }.toList()
+            if (matches.size >= 2 && matches[0] != null && matches[1] != null) {
+                LatLng(matches[0]!!, matches[1]!!)
             } else {
-                val parts = location.split(",").map { it.trim() }
-                if (parts.size >= 2) {
-                    LatLng(parts[0].toDouble(), parts[1].toDouble())
-                } else null
+                val parts = location.split(",").map { it.replace("[^0-9.-]".toRegex(), "").toDoubleOrNull() }
+                if (parts.size >= 2 && parts[0] != null && parts[1] != null) {
+                    LatLng(parts[0]!!, parts[1]!!)
+                } else {
+                    null
+                }
             }
         } catch (e: Exception) {
             Log.e("LocationParser", "Failed to parse location: $location", e)
