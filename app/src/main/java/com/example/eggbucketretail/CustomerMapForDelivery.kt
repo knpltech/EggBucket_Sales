@@ -158,14 +158,20 @@
             googleMap.setOnMarkerClickListener { marker ->
                 marker.showInfoWindow()
                 val uid = marker.tag as? String ?: ""
-                allCustomers.indexOfFirst { it.uid == uid }.takeIf { it >= 0 }?.let { position ->
-                    viewPager?.currentItem = position
-                    lastSelectedCustomerPosition = marker.position
-                    lastSelectedCustomer = allCustomers[position]
-                    viewPager?.visibility = View.VISIBLE
-                    moveMapToCustomer(marker.position)
+                if (::customerAdapter.isInitialized) {
+                    val currentList = customerAdapter.currentList
+                    currentList.indexOfFirst { it.uid == uid }.takeIf { it >= 0 }?.let { position ->
+                        viewPager?.currentItem = position
+                        lastSelectedCustomerPosition = marker.position
+                        lastSelectedCustomer = currentList[position]
+                        viewPager?.visibility = View.VISIBLE
+                        moveMapToCustomer(marker.position)
+                    }
                 }
                 true
+            }
+            googleMap.setOnMapClickListener {
+                viewPager?.visibility = View.GONE
             }
         }
 
@@ -202,6 +208,8 @@
                     var focusUid: String? = null
                     var focusLatLng: LatLng? = null
                     
+                    markerMap.clear()
+                    
                     // First, identify which markers to keep/update/add
                     for (doc in snapshot.documents) {
                         val uid = doc.id
@@ -217,7 +225,7 @@
 
                         val todayOverride = doc.get("todayOverride") as? Map<*, *>
                         var showOnMap = true
-                        if (todayOverride != null && todayOverride["date"] == todayDate) {
+                        if (todayOverride != null) {
                             val overrideStatus = (todayOverride["status"] as? String)?.uppercase()
                             if (overrideStatus == "OFF") {
                                 showOnMap = false
@@ -234,8 +242,9 @@
                         if (latLng != null && showOnMap) {
                             processedUids.add(uid)
 
-                            val count = coordinateCounts[latLng] ?: 0
-                            coordinateCounts[latLng] = count + 1
+                            val roundedLatLng = roundLatLng(latLng)
+                            val count = coordinateCounts[roundedLatLng] ?: 0
+                            coordinateCounts[roundedLatLng] = count + 1
 
                             val finalLatLng = if (count > 0) {
                                 val angle = count * (2 * Math.PI / 8.0)
@@ -333,39 +342,44 @@
                             }
 
                             override fun onPageSelected(position: Int) {
-                                if (isUserScroll && position in allCustomers.indices) {
-                                    val customer = allCustomers[position]
-                                    val marker = activeMarkers[customer.uid]
-                                    marker?.let {
-                                        googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(it.position, 17f))
-                                        it.showInfoWindow()
+                                val currentList = customerAdapter.currentList
+                                if (position in currentList.indices) {
+                                    val customer = currentList[position]
+                                    lastSelectedCustomer = customer
+                                    if (isUserScroll) {
+                                        val marker = activeMarkers[customer.uid]
+                                        marker?.let {
+                                            googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(it.position, 17f))
+                                            it.showInfoWindow()
+                                        }
                                     }
                                 }
                             }
                         })
                     }
-                    customerAdapter.submitList(allCustomers.toList())
-
-                    if (allCustomers.isNotEmpty()) {
-                        viewPager?.visibility = View.VISIBLE
-                        val focusIndex = if (focusUid != null) allCustomers.indexOfFirst { it.uid == focusUid } else -1
-                        if (focusIndex >= 0) {
-                            viewPager?.currentItem = focusIndex
-                            isFirstCustomerLoad = false
-                            
-                            focusLatLng?.let {
-                                googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(it, 17f))
+                    customerAdapter.submitList(allCustomers.toList()) {
+                        val currentList = customerAdapter.currentList
+                        if (currentList.isNotEmpty()) {
+                            if (isFirstCustomerLoad) {
+                                viewPager?.visibility = View.GONE
+                                val targetIndex = if (oldPosition < currentList.size) oldPosition else 0
+                                viewPager?.currentItem = targetIndex
+                                isFirstCustomerLoad = false
+                            } else {
+                                if (viewPager?.visibility == View.VISIBLE) {
+                                    val currentUid = lastSelectedCustomer?.uid
+                                    val newIndex = if (currentUid != null) currentList.indexOfFirst { it.uid == currentUid } else -1
+                                    if (newIndex >= 0) {
+                                        viewPager?.currentItem = newIndex
+                                    } else {
+                                        val targetIndex = if (oldPosition < currentList.size) oldPosition else 0
+                                        viewPager?.currentItem = targetIndex
+                                    }
+                                }
                             }
-                            viewPager?.postDelayed({
-                                activeMarkers[focusUid]?.showInfoWindow()
-                            }, 300)
-                        } else if (isFirstCustomerLoad) {
-                            val targetIndex = if (oldPosition < allCustomers.size) oldPosition else 0
-                            viewPager?.currentItem = targetIndex
-                            isFirstCustomerLoad = false
+                        } else {
+                            viewPager?.visibility = View.GONE
                         }
-                    } else {
-                        viewPager?.visibility = View.GONE
                     }
                 }
         }
@@ -459,13 +473,24 @@
                 val marker = entry.value
                 googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(marker.position, 17f))
                 marker.showInfoWindow()
-                allCustomers.indexOfFirst { it.name.equals(marker.title, ignoreCase = true) }.takeIf { it >= 0 }?.let { position ->
-                    viewPager?.currentItem = position
-                    lastSelectedCustomerPosition = marker.position
-                    lastSelectedCustomer = allCustomers[position]
-                    viewPager?.visibility = View.VISIBLE
-                } ?: Toast.makeText(requireContext(), "Customer data not found", Toast.LENGTH_SHORT).show()
+                if (::customerAdapter.isInitialized) {
+                    val currentList = customerAdapter.currentList
+                    currentList.indexOfFirst { it.name.equals(marker.title, ignoreCase = true) }.takeIf { it >= 0 }?.let { position ->
+                        viewPager?.currentItem = position
+                        lastSelectedCustomerPosition = marker.position
+                        lastSelectedCustomer = currentList[position]
+                        viewPager?.visibility = View.VISIBLE
+                    } ?: Toast.makeText(requireContext(), "Customer data not found", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(requireContext(), "Customer data not loaded yet", Toast.LENGTH_SHORT).show()
+                }
             } ?: Toast.makeText(requireContext(), "Customer not found", Toast.LENGTH_SHORT).show()
+        }
+
+        private fun roundLatLng(latLng: LatLng): LatLng {
+            val roundedLat = Math.round(latLng.latitude * 100000.0) / 100000.0
+            val roundedLng = Math.round(latLng.longitude * 100000.0) / 100000.0
+            return LatLng(roundedLat, roundedLng)
         }
 
 

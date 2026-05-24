@@ -137,15 +137,12 @@ class CustomerMap : Fragment(), OnMapReadyCallback {
                     val todayOverride = doc.get("todayOverride") as? Map<*, *>
                     
                     if (todayOverride != null) {
-                        val overrideDate = todayOverride["date"] as? String
                         val overrideStatus = todayOverride["status"] as? String
                         
-                        if (overrideDate == todayDate) {
-                            if (overrideStatus?.uppercase() == "OFF") {
-                                showOnMap = false
-                            } else if (overrideStatus?.uppercase() == "ON") {
-                                focusUid = uid
-                            }
+                        if (overrideStatus?.uppercase() == "OFF") {
+                            showOnMap = false
+                        } else if (overrideStatus?.uppercase() == "ON") {
+                            focusUid = uid
                         }
                     }
 
@@ -154,8 +151,9 @@ class CustomerMap : Fragment(), OnMapReadyCallback {
                     val position = parseLatLng(location)
 
                     if (position != null) {
-                        val count = coordinateCounts[position] ?: 0
-                        coordinateCounts[position] = count + 1
+                        val roundedPosition = roundLatLng(position)
+                        val count = coordinateCounts[roundedPosition] ?: 0
+                        coordinateCounts[roundedPosition] = count + 1
 
                         val finalPosition = if (count > 0) {
                             val angle = count * (2 * Math.PI / 8.0)
@@ -309,6 +307,12 @@ class CustomerMap : Fragment(), OnMapReadyCallback {
             Log.e("LocationParser", "Failed to parse location: $location", e)
             null
         }
+    }
+
+    private fun roundLatLng(latLng: LatLng): LatLng {
+        val roundedLat = Math.round(latLng.latitude * 100000.0) / 100000.0
+        val roundedLng = Math.round(latLng.longitude * 100000.0) / 100000.0
+        return LatLng(roundedLat, roundedLng)
     }
 
     override fun onDestroyView() {
