@@ -107,10 +107,6 @@ class CustomerMap : Fragment(), OnMapReadyCallback {
     // fetching customer from firestore
     private fun fetchCustomersAndMark() {
         val db = FirebaseFirestore.getInstance()
-        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).apply {
-            timeZone = java.util.TimeZone.getTimeZone("Asia/Kolkata")
-        }
-        val todayDate = sdf.format(java.util.Date())
         customersListener?.remove()
         customersListener = db.collection("customers")
             .addSnapshotListener { snapshot, error ->
