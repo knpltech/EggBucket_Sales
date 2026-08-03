@@ -20,21 +20,29 @@
             android:layout_height="match_parent"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:paddingEnd="16dp">
+            android:paddingEnd="4dp">
 
             <ImageView
                 android:id="@+id/toolbar_logo"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
                 android:src="@drawable/logo"
                 android:contentDescription="App Logo" />
 
-            <TextView
+            <androidx.appcompat.widget.AppCompatTextView
                 android:id="@+id/sales_toolbar_title"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginStart="8dp"
+                android:layout_marginStart="6dp"
+                android:layout_marginEnd="6dp"
+                android:maxLines="1"
+                android:singleLine="true"
+                android:ellipsize="end"
+                app:autoSizeTextType="uniform"
+                app:autoSizeMinTextSize="10sp"
+                app:autoSizeMaxTextSize="18sp"
+                app:autoSizeStepGranularity="1sp"
                 android:textColor="@color/darkgrey"
                 android:textSize="18sp"
                 android:textStyle="bold" />
@@ -44,11 +52,11 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:background="@drawable/badge_bg"
-                android:paddingStart="10dp"
-                android:paddingEnd="10dp"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
                 android:paddingTop="4dp"
                 android:paddingBottom="4dp"
-                android:text="Added Today: 0"
+                android:text="Today: 0"
                 android:textColor="@color/white"
                 android:textSize="12sp"
                 android:textStyle="bold" />

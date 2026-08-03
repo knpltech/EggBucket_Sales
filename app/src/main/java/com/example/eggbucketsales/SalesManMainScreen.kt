@@ -98,7 +98,7 @@ class SalesManMainScreen : AppCompatActivity() {
                         val createdAt = doc.getLong("createdAt") ?: 0L
                         createdAt >= startOfDayMillis
                     }
-                    binding.todayAddedCounter.text = "Added Today: $countToday"
+                    binding.todayAddedCounter.text = "Today: $countToday"
                 }
             }
     }
