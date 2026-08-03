@@ -38,6 +38,9 @@
             android:name=".DeliveryManMainScreen"
             android:exported="false" />
         <activity
+            android:name=".SalesmanProfileActivity"
+            android:exported="false" />
+        <activity
             android:name=".SalesManMainScreen"
             android:exported="false"
             android:windowSoftInputMode="adjustNothing" />

@@ -142,10 +142,12 @@ class SalesManMainScreen : AppCompatActivity() {
         return true
     }
 
-    // logout implementation
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
-
+            R.id.action_profile -> {
+                startActivity(Intent(this, SalesmanProfileActivity::class.java))
+                true
+            }
             R.id.action_logout -> {
                 AlertDialog.Builder(this)
                     .setTitle("Logout")
