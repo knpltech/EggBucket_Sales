@@ -19,12 +19,24 @@ class SalesManMainScreen : AppCompatActivity() {
     private var isAddCustomerFragment = false
     private lateinit var binding: ActivitySalesManMainScreenBinding
     private var countListener: com.google.firebase.firestore.ListenerRegistration? = null
+    private var backPressedTime: Long = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivitySalesManMainScreenBinding.inflate(layoutInflater)
         setContentView(binding.root)
         window.statusBarColor = getColor(R.color.maincolor)
+
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (backPressedTime + 2000 > System.currentTimeMillis()) {
+                    finishAffinity()
+                } else {
+                    Toast.makeText(this@SalesManMainScreen, "Click back again to exit the app", Toast.LENGTH_SHORT).show()
+                    backPressedTime = System.currentTimeMillis()
+                }
+            }
+        })
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())

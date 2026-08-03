@@ -17,11 +17,25 @@ import kotlin.math.log
 class LoginPage : AppCompatActivity() {
     private lateinit var binding:ActivityLoginPageBinding
     private lateinit var auth: FirebaseAuth
+    private var backPressedTime: Long = 0
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         binding=ActivityLoginPageBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (backPressedTime + 2000 > System.currentTimeMillis()) {
+                    finishAffinity()
+                } else {
+                    Toast.makeText(this@LoginPage, "Click back again to exit the app", Toast.LENGTH_SHORT).show()
+                    backPressedTime = System.currentTimeMillis()
+                }
+            }
+        })
+
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)

@@ -17,6 +17,7 @@ import com.google.firebase.auth.FirebaseAuth
 
 class LoginSelection : AppCompatActivity() {
     private lateinit var binding: ActivityLoginSelectionBinding
+    private var backPressedTime: Long = 0
 
     //location permission setting
     private val requestPermissionLauncher = registerForActivityResult(
@@ -37,6 +38,18 @@ class LoginSelection : AppCompatActivity() {
         enableEdgeToEdge()
         binding = ActivityLoginSelectionBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (backPressedTime + 2000 > System.currentTimeMillis()) {
+                    finishAffinity()
+                } else {
+                    Toast.makeText(this@LoginSelection, "Click back again to exit the app", Toast.LENGTH_SHORT).show()
+                    backPressedTime = System.currentTimeMillis()
+                }
+            }
+        })
+
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)

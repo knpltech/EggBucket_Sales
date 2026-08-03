@@ -35,7 +35,21 @@ class SalesmanProfileActivity : AppCompatActivity() {
         val toolbar = findViewById<androidx.appcompat.widget.Toolbar>(R.id.profileToolbar)
         setSupportActionBar(toolbar)
         supportActionBar?.setDisplayShowTitleEnabled(false)
-        toolbar.setNavigationOnClickListener { finish() }
+
+        val redirectToMap = {
+            val intent = android.content.Intent(this, SalesManMainScreen::class.java)
+            intent.flags = android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP
+            startActivity(intent)
+            finish()
+        }
+
+        toolbar.setNavigationOnClickListener { redirectToMap() }
+
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                redirectToMap()
+            }
+        })
 
         profileInitialText = findViewById(R.id.profileInitialText)
         profileSalesmanName = findViewById(R.id.profileSalesmanName)
