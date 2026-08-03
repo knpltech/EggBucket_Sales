@@ -116,7 +116,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="ADDED CUSTOMERS"
+            android:text="CUSTOMERS ADDED TODAY"
             android:textColor="@color/darkgrey"
             android:textSize="14sp"
             android:textStyle="bold" />
@@ -128,7 +128,7 @@
             android:textColor="@color/maincolor"
             android:textSize="14sp"
             android:textStyle="bold"
-            android:text="Total: 0" />
+            android:text="Today: 0" />
 
     </LinearLayout>
 
@@ -149,7 +149,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
-            android:text="No customers added yet"
+            android:text="No customers added today"
             android:textColor="@color/darkgrey"
             android:textSize="16sp"
             android:visibility="gone" />

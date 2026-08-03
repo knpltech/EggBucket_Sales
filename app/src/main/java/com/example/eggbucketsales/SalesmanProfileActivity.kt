@@ -35,6 +35,8 @@ class SalesmanProfileActivity : AppCompatActivity() {
         val toolbar = findViewById<androidx.appcompat.widget.Toolbar>(R.id.profileToolbar)
         setSupportActionBar(toolbar)
         supportActionBar?.setDisplayShowTitleEnabled(false)
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        supportActionBar?.setDisplayShowHomeEnabled(true)
 
         val redirectToMap = {
             val intent = android.content.Intent(this, SalesManMainScreen::class.java)
@@ -65,6 +67,14 @@ class SalesmanProfileActivity : AppCompatActivity() {
 
         fetchSalesmanProfile()
         listenAddedCustomers()
+    }
+
+    override fun onSupportNavigateUp(): Boolean {
+        val intent = android.content.Intent(this, SalesManMainScreen::class.java)
+        intent.flags = android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP
+        startActivity(intent)
+        finish()
+        return true
     }
 
     private fun fetchSalesmanProfile() {
@@ -112,15 +122,24 @@ class SalesmanProfileActivity : AppCompatActivity() {
             .addSnapshotListener { snapshot, error ->
                 profileProgressBar.visibility = View.GONE
                 if (snapshot != null) {
-                    val customerList = snapshot.documents.mapNotNull { doc ->
+                    val calendar = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Kolkata"))
+                    calendar.set(java.util.Calendar.HOUR_OF_DAY, 0)
+                    calendar.set(java.util.Calendar.MINUTE, 0)
+                    calendar.set(java.util.Calendar.SECOND, 0)
+                    calendar.set(java.util.Calendar.MILLISECOND, 0)
+                    val startOfDayMillis = calendar.timeInMillis
+
+                    val todayCustomerList = snapshot.documents.mapNotNull { doc ->
                         val customer = doc.toObject(Customer::class.java)
                         customer?.copy(uid = doc.id)
+                    }.filter { customer ->
+                        customer.createdAt >= startOfDayMillis
                     }.sortedByDescending { it.createdAt }
 
-                    adapter.submitList(customerList)
-                    totalCustomersCount.text = "Total: ${customerList.size}"
+                    adapter.submitList(todayCustomerList)
+                    totalCustomersCount.text = "Today: ${todayCustomerList.size}"
 
-                    if (customerList.isEmpty()) {
+                    if (todayCustomerList.isEmpty()) {
                         emptyCustomersTextView.visibility = View.VISIBLE
                         addedCustomersRecyclerView.visibility = View.GONE
                     } else {
