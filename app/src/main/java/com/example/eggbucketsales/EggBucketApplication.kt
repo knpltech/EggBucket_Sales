@@ -1,4 +1,4 @@
-package com.example.eggbucketretail
+package com.example.eggbucketsales
 
 import android.app.Application
 import com.google.firebase.firestore.FirebaseFirestore

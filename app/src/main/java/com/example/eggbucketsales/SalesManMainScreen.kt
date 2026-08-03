@@ -1,4 +1,4 @@
-package com.example.eggbucketretail
+package com.example.eggbucketsales
 
 import android.content.Intent
 import android.os.Bundle
@@ -11,13 +11,14 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
 import androidx.appcompat.widget.SearchView
-import com.example.eggbucketretail.databinding.ActivitySalesManMainScreenBinding
+import com.example.eggbucketsales.databinding.ActivitySalesManMainScreenBinding
 import com.google.firebase.auth.FirebaseAuth
 
 class SalesManMainScreen : AppCompatActivity() {
 
     private var isAddCustomerFragment = false
     private lateinit var binding: ActivitySalesManMainScreenBinding
+    private var countListener: com.google.firebase.firestore.ListenerRegistration? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,6 +35,8 @@ class SalesManMainScreen : AppCompatActivity() {
         val toolbar = findViewById<androidx.appcompat.widget.Toolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
         supportActionBar?.setDisplayShowTitleEnabled(false)
+
+        listenTodayAddedCustomers()
 
         val bottomNavigation = binding.bottomNavigation
         bottomNavigation.itemIconTintList = resources.getColorStateList(R.color.bottom_nav_item_color, theme)
@@ -74,6 +77,35 @@ class SalesManMainScreen : AppCompatActivity() {
                 .replace(R.id.fragment_container, CustomerMap())
                 .commit()
         }
+    }
+
+    private fun listenTodayAddedCustomers() {
+        val currentUid = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        countListener?.remove()
+        countListener = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+            .collection("customers")
+            .whereEqualTo("createdby", currentUid)
+            .addSnapshotListener { snapshot, error ->
+                if (snapshot != null) {
+                    val calendar = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Kolkata"))
+                    calendar.set(java.util.Calendar.HOUR_OF_DAY, 0)
+                    calendar.set(java.util.Calendar.MINUTE, 0)
+                    calendar.set(java.util.Calendar.SECOND, 0)
+                    calendar.set(java.util.Calendar.MILLISECOND, 0)
+                    val startOfDayMillis = calendar.timeInMillis
+
+                    val countToday = snapshot.documents.count { doc ->
+                        val createdAt = doc.getLong("createdAt") ?: 0L
+                        createdAt >= startOfDayMillis
+                    }
+                    binding.todayAddedCounter.text = "Added Today: $countToday"
+                }
+            }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        countListener?.remove()
     }
     // initalizing toolbar's menu
     override fun onPrepareOptionsMenu(menu: Menu): Boolean {

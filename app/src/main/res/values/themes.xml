@@ -1,11 +1,11 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
-    <style name="Base.Theme.EggBucketRetail" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Base.Theme.EggBucketSales" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Customize your light theme here. -->
         <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
     </style>
 
-    <style name="Theme.EggBucketRetail" parent="Base.Theme.EggBucketRetail" />
+    <style name="Theme.EggBucketSales" parent="Base.Theme.EggBucketSales" />
 
     <style name="CircleImage">
         <item name="cornerSize">50%</item>

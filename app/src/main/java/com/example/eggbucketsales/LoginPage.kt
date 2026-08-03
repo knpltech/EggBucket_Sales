@@ -1,4 +1,4 @@
-package com.example.eggbucketretail
+package com.example.eggbucketsales
 
 import android.content.Intent
 import android.os.Bundle
@@ -9,8 +9,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import com.example.eggbucketretail.databinding.ActivityLoginPageBinding
-import com.example.eggbucketretail.databinding.ActivityLoginSelectionBinding
+import com.example.eggbucketsales.databinding.ActivityLoginPageBinding
+import com.example.eggbucketsales.databinding.ActivityLoginSelectionBinding
 import com.google.firebase.auth.FirebaseAuth
 import kotlin.math.log
 
@@ -27,9 +27,6 @@ class LoginPage : AppCompatActivity() {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
-        //getting message from last screen
-        val logintype = intent.getStringExtra("logintype")
-        Toast.makeText(this,logintype,Toast.LENGTH_SHORT).show()
         //firebase authentication
         auth = FirebaseAuth.getInstance()
 
@@ -46,38 +43,8 @@ class LoginPage : AppCompatActivity() {
             binding.loginProgressBar.visibility = android.view.View.VISIBLE
             binding.loginbutton.isEnabled = false
 
-            if (logintype.equals("salesman")) {
-                loginToSalesman(phone, password)
-            } else {
-                loginToDelivery(phone, password)
-            }
+            loginToSalesman(phone, password)
         }
-
-
-
-
-
-    }
-    // function for deliveryman login
-    private fun loginToDelivery(phone: String, password: String) {
-        val email = "$phone@eggbucketdelivery.in"
-        auth.signInWithEmailAndPassword(email, password)
-            .addOnCompleteListener { task ->
-                // Hide progress bar and enable button after task completion
-                binding.loginProgressBar.visibility = android.view.View.GONE
-                binding.loginbutton.isEnabled = true
-
-                if (task.isSuccessful) {
-                    Toast.makeText(this, "Login successful", Toast.LENGTH_SHORT).show()
-
-                    val intent = Intent(this, DeliveryManMainScreen::class.java)
-                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                    startActivity(intent)
-                    finish()
-                } else {
-                    Toast.makeText(this, "Incorrect Credentials", Toast.LENGTH_SHORT).show()
-                }
-            }
     }
 
     // function for salesman login

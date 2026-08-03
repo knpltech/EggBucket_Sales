@@ -1,4 +1,4 @@
-package com.example.eggbucketretail
+package com.example.eggbucketsales
 
 import android.Manifest
 import android.content.Context
@@ -19,7 +19,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.bumptech.glide.Glide
-import com.example.eggbucketretail.Models.Customer
+import com.example.eggbucketsales.Models.Customer
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
@@ -132,21 +132,14 @@ class CustomerMap : Fragment(), OnMapReadyCallback {
                     val business = doc.getString("business") ?: "Unknown"
                     val phone = doc.getString("phone") ?: "N/A"
                     val imageUrl = doc.getString("imageUrl") ?: ""
-                    // Check 'todayOverride' map from Firestore
-                    var showOnMap = true
+                    // Check 'todayOverride' for focusing map if ON
                     val todayOverride = doc.get("todayOverride") as? Map<*, *>
-                    
                     if (todayOverride != null) {
                         val overrideStatus = todayOverride["status"] as? String
-                        
-                        if (overrideStatus?.uppercase() == "OFF") {
-                            showOnMap = false
-                        } else if (overrideStatus?.uppercase() == "ON") {
+                        if (overrideStatus?.uppercase() == "ON") {
                             focusUid = uid
                         }
                     }
-
-                    if (!showOnMap) continue
 
                     val position = parseLatLng(location)
 

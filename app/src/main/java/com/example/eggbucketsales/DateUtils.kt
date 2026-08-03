@@ -1,4 +1,4 @@
-package com.example.eggbucketretail
+package com.example.eggbucketsales
 
 import java.text.SimpleDateFormat
 import java.util.*

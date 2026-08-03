@@ -1,4 +1,4 @@
-    package com.example.eggbucketretail
+    package com.example.eggbucketsales
 
     import android.content.Context
     import android.content.Intent
@@ -20,8 +20,8 @@
 
     import androidx.viewpager2.widget.ViewPager2
 
-    import com.example.eggbucketretail.Adapters.CustomerCardAdapter
-    import com.example.eggbucketretail.Models.Customer
+    import com.example.eggbucketsales.Adapters.CustomerCardAdapter
+    import com.example.eggbucketsales.Models.Customer
 
     import com.google.android.gms.location.*
     import com.google.android.gms.maps.CameraUpdateFactory

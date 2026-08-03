@@ -1,4 +1,4 @@
-package com.example.eggbucketretail.Adapters
+package com.example.eggbucketsales.Adapters
 
 
 
@@ -22,11 +22,11 @@ import java.util.Calendar
 import androidx.fragment.app.FragmentActivity
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
-import com.example.eggbucketretail.DeliveryFormDialog
-import com.example.eggbucketretail.Models.Customer
-import com.example.eggbucketretail.R
-import com.example.eggbucketretail.isReachedType
-import com.example.eggbucketretail.isOlderThan30Days
+import com.example.eggbucketsales.DeliveryFormDialog
+import com.example.eggbucketsales.Models.Customer
+import com.example.eggbucketsales.R
+import com.example.eggbucketsales.isReachedType
+import com.example.eggbucketsales.isOlderThan30Days
 import com.google.android.gms.maps.model.LatLng
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue

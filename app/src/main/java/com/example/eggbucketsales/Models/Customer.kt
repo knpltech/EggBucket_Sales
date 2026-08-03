@@ -1,4 +1,4 @@
-package com.example.eggbucketretail.Models
+package com.example.eggbucketsales.Models
 
 import android.os.Parcelable
 import kotlinx.android.parcel.Parcelize

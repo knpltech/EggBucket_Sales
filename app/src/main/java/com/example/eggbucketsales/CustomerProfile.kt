@@ -1,4 +1,4 @@
-package com.example.eggbucketretail
+package com.example.eggbucketsales
 
 import android.content.Intent
 import android.net.Uri
@@ -7,10 +7,10 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.bumptech.glide.Glide
-import com.example.eggbucketretail.Adapters.DeliveryHistory
-import com.example.eggbucketretail.Adapters.DeliveryHistoryAdapter
-import com.example.eggbucketretail.Models.Customer
-import com.example.eggbucketretail.databinding.ActivityCustomerProfileBinding
+import com.example.eggbucketsales.Adapters.DeliveryHistory
+import com.example.eggbucketsales.Adapters.DeliveryHistoryAdapter
+import com.example.eggbucketsales.Models.Customer
+import com.example.eggbucketsales.databinding.ActivityCustomerProfileBinding
 import com.google.firebase.firestore.FirebaseFirestore
 import java.util.*
 

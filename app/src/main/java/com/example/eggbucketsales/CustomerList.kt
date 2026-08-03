@@ -1,4 +1,4 @@
-package com.example.eggbucketretail
+package com.example.eggbucketsales
 
 import android.content.Intent
 import android.os.Bundle
@@ -10,8 +10,8 @@ import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-import com.example.eggbucketretail.Adapters.CustomerAdapter
-import com.example.eggbucketretail.Models.Customer
+import com.example.eggbucketsales.Adapters.CustomerAdapter
+import com.example.eggbucketsales.Models.Customer
 import com.google.firebase.firestore.FirebaseFirestore
 
 class CustomerList : Fragment() {

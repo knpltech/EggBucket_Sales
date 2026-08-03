@@ -1,4 +1,4 @@
-package com.example.eggbucketretail
+package com.example.eggbucketsales
 
 import android.os.Bundle
 import androidx.activity.enableEdgeToEdge
@@ -6,7 +6,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.bumptech.glide.Glide
-import com.example.eggbucketretail.databinding.ActivityFullScreenImageBinding
+import com.example.eggbucketsales.databinding.ActivityFullScreenImageBinding
 
 class FullScreenImage : AppCompatActivity() {
     private lateinit var binding: ActivityFullScreenImageBinding

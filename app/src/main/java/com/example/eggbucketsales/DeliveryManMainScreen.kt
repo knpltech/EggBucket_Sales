@@ -1,4 +1,4 @@
-package com.example.eggbucketretail
+package com.example.eggbucketsales
 
 import android.content.Intent
 import android.os.Bundle
@@ -12,7 +12,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SearchView
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import com.example.eggbucketretail.databinding.ActivityDeliveryManMainScreenBinding
+import com.example.eggbucketsales.databinding.ActivityDeliveryManMainScreenBinding
 import com.google.firebase.auth.FirebaseAuth
 
 class DeliveryManMainScreen : AppCompatActivity() {

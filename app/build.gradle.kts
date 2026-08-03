@@ -7,11 +7,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.eggbucketretail"
+    namespace = "com.example.eggbucketsales"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.eggbucketretail"
+        applicationId = "com.example.eggbucketsales"
         minSdk = 24
         targetSdk = 34
         versionCode = 1

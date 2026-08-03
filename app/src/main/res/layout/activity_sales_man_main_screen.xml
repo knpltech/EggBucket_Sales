@@ -16,10 +16,11 @@
         android:elevation="4dp"
         app:layout_constraintTop_toTopOf="parent">
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:gravity="center_vertical"
+            android:paddingEnd="16dp">
 
             <ImageView
                 android:id="@+id/toolbar_logo"
@@ -30,11 +31,26 @@
 
             <TextView
                 android:id="@+id/sales_toolbar_title"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_weight="1"
                 android:layout_marginStart="8dp"
                 android:textColor="@color/darkgrey"
                 android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/todayAddedCounter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/badge_bg"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp"
+                android:text="Added Today: 0"
+                android:textColor="@color/white"
+                android:textSize="12sp"
                 android:textStyle="bold" />
 
         </LinearLayout>

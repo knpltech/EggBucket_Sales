@@ -1,4 +1,4 @@
-package com.example.eggbucketretail
+package com.example.eggbucketsales
 
 import android.Manifest
 import android.content.Intent
@@ -12,7 +12,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import com.example.eggbucketretail.databinding.ActivityLoginSelectionBinding
+import com.example.eggbucketsales.databinding.ActivityLoginSelectionBinding
 import com.google.firebase.auth.FirebaseAuth
 
 class LoginSelection : AppCompatActivity() {
@@ -49,22 +49,12 @@ class LoginSelection : AppCompatActivity() {
         if (currentUser != null) {
             binding.loadingOverlay.visibility = android.view.View.VISIBLE
             val email = currentUser.email
-            if (!email.isNullOrEmpty()) {
-                when {
-                    email.contains("sales") -> {
-                        startActivity(Intent(this, SalesManMainScreen::class.java))
-                        finish()
-                    }
-                    email.contains("delivery") -> {
-                        startActivity(Intent(this, DeliveryManMainScreen::class.java))
-                        finish()
-                    }
-                    else -> {
-                        FirebaseAuth.getInstance().signOut()
-                    }
-                }
+            if (!email.isNullOrEmpty() && email.contains("sales")) {
+                startActivity(Intent(this, SalesManMainScreen::class.java))
+                finish()
             } else {
                 FirebaseAuth.getInstance().signOut()
+                binding.loadingOverlay.visibility = android.view.View.GONE
             }
         } else {
             FirebaseAuth.getInstance().signOut()
@@ -75,18 +65,6 @@ class LoginSelection : AppCompatActivity() {
         binding.loginassalesman.setOnClickListener{
             salesmanSelection()
         }
-
-        //handling login for deliveryman
-        binding.loginasdeliveryman.setOnClickListener{
-            deliverySelection()
-        }
-
-    }
-    //function to go to login page based on selection
-    private fun deliverySelection() {
-        val intent = Intent(this, LoginPage::class.java)
-        intent.putExtra("logintype","deliveryman")
-        startActivity(intent)
     }
 
     private fun salesmanSelection() {

@@ -1,4 +1,4 @@
-package com.example.eggbucketretail
+package com.example.eggbucketsales
 
 import android.content.Context
 import android.content.Intent
@@ -12,8 +12,8 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.bumptech.glide.Glide
-import com.example.eggbucketretail.Models.Customer
-import com.example.eggbucketretail.databinding.ActivityDeliveryDetailsBinding
+import com.example.eggbucketsales.Models.Customer
+import com.example.eggbucketsales.databinding.ActivityDeliveryDetailsBinding
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore

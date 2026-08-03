@@ -1,4 +1,4 @@
-package com.example.eggbucketretail.Adapters
+package com.example.eggbucketsales.Adapters
 
 import android.view.LayoutInflater
 import android.view.View
@@ -9,8 +9,8 @@ import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.GlideException
-import com.example.eggbucketretail.Models.Customer
-import com.example.eggbucketretail.R
+import com.example.eggbucketsales.Models.Customer
+import com.example.eggbucketsales.R
 
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter

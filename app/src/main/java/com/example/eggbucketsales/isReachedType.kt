@@ -1,4 +1,4 @@
-package com.example.eggbucketretail
+package com.example.eggbucketsales
 
 fun isReachedType(type: String?): Boolean {
     return type == "reached" ||
