@@ -6,14 +6,14 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.GlideException
 import com.example.eggbucketsales.Models.Customer
 import com.example.eggbucketsales.R
-
-import androidx.recyclerview.widget.DiffUtil
-import androidx.recyclerview.widget.ListAdapter
+import com.example.eggbucketsales.Repository.CustomerRepository
 
 class CustomerAdapter(
     private val onItemClick: (Customer) -> Unit
@@ -43,21 +43,30 @@ class CustomerAdapter(
             businessName.text = customer.business
             customerPhone.text = customer.phone
 
-            val isNew = isCustomerNewlyAdded(customer)
-            if (isNew) {
-                categoryBadge.visibility = View.VISIBLE
-                categoryBadge.text = "NEW"
-                categoryBadge.setBackgroundResource(R.drawable.badge_new_bg)
-            } else if (customer.category.isNotBlank() || customer.isD0OrD1) {
-                categoryBadge.visibility = View.VISIBLE
-                categoryBadge.text = if (customer.category.isNotBlank()) customer.category else "D0"
-                if (customer.isD0OrD1) {
-                    categoryBadge.setBackgroundResource(R.drawable.badge_d0_bg)
-                } else {
-                    categoryBadge.setBackgroundResource(R.drawable.badge_bg)
+            val isNew = CustomerRepository.isCustomerNewlyAdded(customer.createdAt)
+            val isAccessible = CustomerRepository.isCustomerAccessible(customer)
+            val status = customer.status?.lowercase()
+
+            categoryBadge.visibility = View.VISIBLE
+
+            when {
+                !isAccessible -> {
+                    categoryBadge.text = if (customer.category.isNotBlank()) customer.category else customer.computedFrequency
+                    categoryBadge.setBackgroundResource(R.drawable.badge_blue_bg) // Blue badge (no access)
                 }
-            } else {
-                categoryBadge.visibility = View.GONE
+                status == "delivered" -> {
+                    categoryBadge.text = "DELIVERED"
+                    categoryBadge.setBackgroundResource(R.drawable.badge_green_bg) // Green badge
+                }
+                status == "reached" || status == "checked" -> {
+                    categoryBadge.text = "CHECKED"
+                    categoryBadge.setBackgroundResource(R.drawable.badge_yellow_bg) // Orange badge
+                }
+                else -> {
+                    val text = if (isNew) "NEW" else customer.computedFrequency
+                    categoryBadge.text = text
+                    categoryBadge.setBackgroundResource(R.drawable.badge_d0_bg) // Red badge
+                }
             }
 
             if (!customer.lastDeliveredDate.isNullOrBlank()) {
@@ -69,6 +78,9 @@ class CustomerAdapter(
             } else if (customer.isD0OrD1 && !isNew) {
                 lastDeliveryText.visibility = View.VISIBLE
                 lastDeliveryText.text = "No orders in last 8 days"
+            } else if (isNew) {
+                lastDeliveryText.visibility = View.VISIBLE
+                lastDeliveryText.text = "New Customer • No past orders"
             } else {
                 lastDeliveryText.visibility = View.GONE
             }
@@ -104,18 +116,6 @@ class CustomerAdapter(
             itemView.setOnClickListener {
                 onItemClick(customer)
             }
-        }
-
-        private fun isCustomerNewlyAdded(customer: Customer?): Boolean {
-            if (customer == null || customer.createdAt <= 0L) return false
-            val calendar = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Kolkata"))
-            calendar.set(java.util.Calendar.HOUR_OF_DAY, 0)
-            calendar.set(java.util.Calendar.MINUTE, 0)
-            calendar.set(java.util.Calendar.SECOND, 0)
-            calendar.set(java.util.Calendar.MILLISECOND, 0)
-            calendar.add(java.util.Calendar.DAY_OF_YEAR, -45)
-            val last45DaysMillis = calendar.timeInMillis
-            return customer.createdAt >= last45DaysMillis
         }
 
         private fun formatDeliveryDate(dateStr: String?): String {

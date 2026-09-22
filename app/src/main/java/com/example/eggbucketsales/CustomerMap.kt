@@ -31,6 +31,7 @@ import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.*
 import com.google.firebase.firestore.FirebaseFirestore
+import com.example.eggbucketsales.Repository.CustomerRepository
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -68,121 +69,11 @@ class CustomerMap : Fragment(), OnMapReadyCallback {
     private val markerIconCache = mutableMapOf<String, BitmapDescriptor>()
 
     private fun isCustomerNewlyAdded(customer: Customer?): Boolean {
-        if (customer == null || customer.createdAt <= 0L) return false
-        val calendar = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Kolkata"))
-        calendar.set(java.util.Calendar.HOUR_OF_DAY, 0)
-        calendar.set(java.util.Calendar.MINUTE, 0)
-        calendar.set(java.util.Calendar.SECOND, 0)
-        calendar.set(java.util.Calendar.MILLISECOND, 0)
-        calendar.add(java.util.Calendar.DAY_OF_YEAR, -45)
-        val last45DaysMillis = calendar.timeInMillis
-        return customer.createdAt >= last45DaysMillis
+        return CustomerRepository.isCustomerNewlyAdded(customer?.createdAt ?: 0L)
     }
 
     private fun isCustomerAccessible(customer: Customer?): Boolean {
-        if (customer == null) return false
-        return isCustomerNewlyAdded(customer) || customer.isD0OrD1
-    }
-
-    data class DeliverySummary(
-        val lastDeliveredDate: String?,
-        val lastDeliveredQty: Int,
-        val lastDeliveredAmount: Int,
-        val lastDeliveredAgent: String?,
-        val category: String,
-        val isD0OrD1: Boolean
-    )
-
-    private fun extractDeliverySummary(last8Days: Map<*, *>?, explicitCategory: String? = null): DeliverySummary {
-        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
-            timeZone = TimeZone.getTimeZone("Asia/Kolkata")
-        }
-        val cal = java.util.Calendar.getInstance(TimeZone.getTimeZone("Asia/Kolkata"))
-
-        val dateList = mutableListOf<String>()
-        for (i in 0..7) {
-            val dCal = cal.clone() as java.util.Calendar
-            dCal.add(java.util.Calendar.DAY_OF_YEAR, -i)
-            dateList.add(sdf.format(dCal.time))
-        }
-
-        var deliveredCountLast7Days = 0 // Days 1..7 ago (past week)
-        var deliveredCountLast8Days = 0 // Days 0..7 ago (including today)
-
-        if (last8Days != null) {
-            for (i in 1..7) {
-                val dateKey = dateList[i]
-                val entry = last8Days[dateKey] as? Map<*, *>
-                val status = (entry?.get("status") as? String)?.lowercase()
-                if (status == "delivered") {
-                    deliveredCountLast7Days++
-                }
-            }
-            for (i in 0..7) {
-                val dateKey = dateList[i]
-                val entry = last8Days[dateKey] as? Map<*, *>
-                val status = (entry?.get("status") as? String)?.lowercase()
-                if (status == "delivered") {
-                    deliveredCountLast8Days++
-                }
-            }
-        }
-
-        val computedCategory = "D$deliveredCountLast7Days"
-        val isExplicitD0D1 = explicitCategory?.equals("D0", ignoreCase = true) == true ||
-                explicitCategory?.equals("D1", ignoreCase = true) == true
-
-        val isD0OrD1 = isExplicitD0D1 || (deliveredCountLast7Days == 0) || (deliveredCountLast8Days == 0) || (last8Days == null || last8Days.isEmpty())
-
-        var latestDate: String? = null
-        var latestQty = 0
-        var latestAmount = 0
-        var latestAgent: String? = null
-
-        if (last8Days != null && last8Days.isNotEmpty()) {
-            val deliveredEntries = mutableListOf<Pair<String, Map<*, *>>>()
-            for ((key, value) in last8Days) {
-                val dateStr = key as? String ?: continue
-                val entryMap = value as? Map<*, *> ?: continue
-                val status = (entryMap["status"] as? String)?.lowercase()
-                if (status == "delivered") {
-                    deliveredEntries.add(Pair(dateStr, entryMap))
-                }
-            }
-
-            if (deliveredEntries.isNotEmpty()) {
-                deliveredEntries.sortByDescending { it.first }
-                val mostRecent = deliveredEntries.first()
-                latestDate = mostRecent.first
-                val entryMap = mostRecent.second
-
-                latestQty = (entryMap["quantity"] as? Number)?.toInt()
-                    ?: (entryMap["quantity"] as? String)?.toIntOrNull() ?: 0
-
-                val total = (entryMap["totalAmount"] as? Number)?.toInt()
-                    ?: (entryMap["totalAmount"] as? String)?.toIntOrNull()
-                if (total != null && total > 0) {
-                    latestAmount = total
-                } else {
-                    val cash = (entryMap["cashAmount"] as? Number)?.toInt()
-                        ?: (entryMap["cashAmount"] as? String)?.toIntOrNull() ?: 0
-                    val upi = (entryMap["upiAmount"] as? Number)?.toInt()
-                        ?: (entryMap["upiAmount"] as? String)?.toIntOrNull() ?: 0
-                    latestAmount = cash + upi
-                }
-
-                latestAgent = entryMap["agentName"] as? String
-            }
-        }
-
-        return DeliverySummary(
-            lastDeliveredDate = latestDate,
-            lastDeliveredQty = latestQty,
-            lastDeliveredAmount = latestAmount,
-            lastDeliveredAgent = latestAgent,
-            category = if (explicitCategory?.isNotBlank() == true) explicitCategory else computedCategory,
-            isD0OrD1 = isD0OrD1
-        )
+        return CustomerRepository.isCustomerAccessible(customer)
     }
 
     private fun formatDeliveryDate(dateStr: String?): String {
@@ -199,15 +90,15 @@ class CustomerMap : Fragment(), OnMapReadyCallback {
 
     private fun getMarkerIcon(context: Context, customer: Customer?, isSelected: Boolean): BitmapDescriptor {
         val isAccessible = isCustomerAccessible(customer)
-        val drawableRes = if (!isAccessible) {
-            R.drawable.blue_marker
-        } else {
-            when (customer?.status?.lowercase()) {
-                "delivered" -> R.drawable.green_marker
-                "reached" -> R.drawable.orangemarker
-                else -> R.drawable.baseline_location_pin_24
-            }
+        val status = customer?.status?.lowercase()
+
+        val drawableRes = when {
+            !isAccessible -> R.drawable.blue_marker                               // Blue for rest (no access)
+            status == "delivered" -> R.drawable.green_marker                      // Green for (< 45, D0, D1) delivered today
+            status == "reached" || status == "checked" -> R.drawable.orangemarker // Orange for (< 45, D0, D1) checked today
+            else -> R.drawable.baseline_location_pin_24                           // Red for (< 45, D0, D1) pending
         }
+
         val width = if (isSelected) 125 else 80
         val height = if (isSelected) 125 else 80
         val cacheKey = "${drawableRes}_${width}_${height}"
@@ -414,10 +305,7 @@ class CustomerMap : Fragment(), OnMapReadyCallback {
 
     private fun fetchCustomersAndMark() {
         val db = FirebaseFirestore.getInstance()
-        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
-            timeZone = TimeZone.getTimeZone("Asia/Kolkata")
-        }
-        val todayDate = sdf.format(Date())
+        val targetDates = CustomerRepository.getLast8DaysDateStrings()
 
         customersListener?.remove()
         customersListener = db.collection("customers")
@@ -439,43 +327,19 @@ class CustomerMap : Fragment(), OnMapReadyCallback {
                 markerMap.clear()
 
                 for (doc in snapshot.documents) {
-                    val uid = doc.id
-                    val name = doc.getString("name") ?: continue
-                    val location = doc.getString("location") ?: continue
-                    val business = doc.getString("business") ?: "Unknown"
-                    val phone = doc.getString("phone") ?: "N/A"
-                    val imageUrl = doc.getString("imageUrl") ?: ""
-                    val createdby = doc.getString("createdby") ?: ""
-                    val rawCreatedAt = when (val raw = doc.get("createdAt")) {
-                        is Number -> raw.toLong()
-                        is com.google.firebase.Timestamp -> raw.toDate().time
-                        is java.util.Date -> raw.time
-                        else -> 0L
-                    }
-                    val createdAt = if (rawCreatedAt > 0L && rawCreatedAt < 100_000_000_000L) rawCreatedAt * 1000L else rawCreatedAt
-
-                    // Extract delivery status for today & last delivery history
-                    val last8Days = doc.get("last8Days") as? Map<*, *>
-                    val explicitCat = doc.getString("category") ?: doc.getString("Peak_Frequency") ?: doc.getString("peakFrequency")
-                    val summary = extractDeliverySummary(last8Days, explicitCat)
-
-                    val todayData = last8Days?.get(todayDate) as? Map<*, *>
-                    val dayStatus = todayData?.get("status") as? String
+                    val customer = CustomerRepository.processCustomer(doc, targetDates) ?: continue
+                    val uid = customer.uid
+                    val name = customer.name
+                    val location = customer.location
+                    val business = customer.business
 
                     // Check 'todayOverride' status
                     val todayOverride = doc.get("todayOverride") as? Map<*, *>
-                    var overrideStatus: String? = null
                     if (todayOverride != null) {
-                        overrideStatus = todayOverride["status"] as? String
+                        val overrideStatus = todayOverride["status"] as? String
                         if (overrideStatus?.uppercase() == "ON") {
                             focusUid = uid
                         }
-                    }
-
-                    val effectiveStatus = if (overrideStatus?.lowercase() == "delivered" || overrideStatus?.lowercase() == "reached") {
-                        overrideStatus
-                    } else {
-                        dayStatus
                     }
 
                     val position = parseLatLng(location)
@@ -502,23 +366,6 @@ class CustomerMap : Fragment(), OnMapReadyCallback {
                             focusLatLng = finalPosition
                         }
 
-                        val customer = Customer(
-                            uid = uid,
-                            name = name,
-                            location = location,
-                            business = business,
-                            imageUrl = imageUrl,
-                            phone = phone,
-                            createdby = createdby,
-                            createdAt = createdAt,
-                            status = effectiveStatus,
-                            lastDeliveredDate = summary.lastDeliveredDate,
-                            lastDeliveredQty = summary.lastDeliveredQty,
-                            lastDeliveredAmount = summary.lastDeliveredAmount,
-                            lastDeliveredAgent = summary.lastDeliveredAgent,
-                            category = summary.category,
-                            isD0OrD1 = summary.isD0OrD1
-                        )
                         newCustomers.add(customer)
 
                         val isSelected = (selectedCustomerUid == uid)
@@ -625,16 +472,27 @@ class CustomerMap : Fragment(), OnMapReadyCallback {
 
         val isAccessible = isCustomerAccessible(customer)
         val isNew = isCustomerNewlyAdded(customer)
+        val status = customer.status?.lowercase()
 
-        // Setup Category Badge & Last Delivery text
-        val badgeText = if (isNew) "NEW" else if (customer.category.isNotBlank()) customer.category else if (customer.isD0OrD1) "D0" else "D2"
-        customerCategoryBadge.text = badgeText
-        if (isNew) {
-            customerCategoryBadge.setBackgroundResource(R.drawable.badge_new_bg)
-        } else if (customer.isD0OrD1) {
-            customerCategoryBadge.setBackgroundResource(R.drawable.badge_d0_bg)
-        } else {
-            customerCategoryBadge.setBackgroundResource(R.drawable.badge_bg)
+        // Setup Category Badge (Red for pending <45d/D0/D1, Orange for checked, Green for delivered, Blue for rest)
+        when {
+            !isAccessible -> {
+                customerCategoryBadge.text = if (customer.category.isNotBlank()) customer.category else customer.computedFrequency
+                customerCategoryBadge.setBackgroundResource(R.drawable.badge_blue_bg) // Blue badge (no access)
+            }
+            status == "delivered" -> {
+                customerCategoryBadge.text = "DELIVERED"
+                customerCategoryBadge.setBackgroundResource(R.drawable.badge_green_bg) // Green badge
+            }
+            status == "reached" || status == "checked" -> {
+                customerCategoryBadge.text = "CHECKED"
+                customerCategoryBadge.setBackgroundResource(R.drawable.badge_yellow_bg) // Orange badge
+            }
+            else -> {
+                val text = if (isNew) "NEW" else customer.computedFrequency
+                customerCategoryBadge.text = text
+                customerCategoryBadge.setBackgroundResource(R.drawable.badge_d0_bg) // Red badge
+            }
         }
 
         if (!customer.lastDeliveredDate.isNullOrBlank()) {
@@ -662,16 +520,16 @@ class CustomerMap : Fragment(), OnMapReadyCallback {
             cardBtnUpdate.visibility = View.VISIBLE
             btnUpdate.visibility = View.VISIBLE
 
-            when (customer.status?.lowercase()) {
+            when (status) {
                 "delivered" -> {
                     btnUpdate.text = "DELIVERED"
                     btnUpdate.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.green))
                     btnUpdate.isEnabled = false
                     btnUpdate.isClickable = false
                 }
-                "reached" -> {
+                "reached", "checked" -> {
                     btnUpdate.text = "CHECKED"
-                    btnUpdate.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.maincolor))
+                    btnUpdate.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.maincolor)) // Orange
                     btnUpdate.isEnabled = false
                     btnUpdate.isClickable = false
                 }
