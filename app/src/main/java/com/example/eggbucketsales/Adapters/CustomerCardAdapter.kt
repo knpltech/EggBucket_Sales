@@ -136,12 +136,21 @@ class CustomerCardAdapter(
         }
     }
 
-    private fun handleDeliveryButtonClick(holder: CardViewHolder, customerLatLng: LatLng,uid:String) {
-        if(holder.deliveryButton.text.equals("DELIVERED") || holder.deliveryButton.text.equals("REACHED")){
-            holder.deliveryButton.isEnabled=false
-            holder.deliveryButton.isClickable=false
+    private fun handleDeliveryButtonClick(holder: CardViewHolder, customerLatLng: LatLng, uid: String) {
+        val position = holder.adapterPosition
+        if (position == RecyclerView.NO_POSITION) return
+        val currentCustomer = getItem(position)
+
+        if (currentCustomer.status?.lowercase() == "delivered" || currentCustomer.status?.lowercase() == "reached" ||
+            holder.deliveryButton.text.toString().equals("DELIVERED", ignoreCase = true) ||
+            holder.deliveryButton.text.toString().equals("CHECKED", ignoreCase = true)) {
+            holder.deliveryButton.isEnabled = false
+            holder.deliveryButton.isClickable = false
+            Toast.makeText(context, "Customer is already updated for today", Toast.LENGTH_SHORT).show()
+            return
         }
-        val currentLocation=currentUserLocation
+
+        val currentLocation = currentUserLocation
         if (currentLocation != null) {
             animateRefreshButton(holder.refreshButton)
 
@@ -154,11 +163,11 @@ class CustomerCardAdapter(
                 result
             )
             val distanceInMeters = result[0]
-            //radius distance
+            // radius distance
             if (distanceInMeters <= 50f) {
                 val fragmentActivity = context as? FragmentActivity
                 fragmentActivity?.let {
-                    val dialog = DeliveryFormDialog(getItem(holder.adapterPosition)) { actionType ->
+                    val dialog = DeliveryFormDialog(getItem(position)) { actionType ->
                         val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
                         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
                             timeZone = java.util.TimeZone.getTimeZone("Asia/Kolkata")
@@ -226,10 +235,14 @@ class CustomerCardAdapter(
                     dialog.show(it.supportFragmentManager, "DeliveryFormDialog")
                 }
             } else {
-                Toast.makeText(context, "Reach the destination", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    context,
+                    "You must be within 50m of customer location to update. Current distance: ${distanceInMeters.toInt()}m",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         } else {
-            Toast.makeText(context, "Location not available", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Location not available. Please wait for GPS location.", Toast.LENGTH_SHORT).show()
         }
     }
 

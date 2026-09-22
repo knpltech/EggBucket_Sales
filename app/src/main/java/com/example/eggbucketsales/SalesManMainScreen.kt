@@ -49,6 +49,7 @@ class SalesManMainScreen : AppCompatActivity() {
         supportActionBar?.setDisplayShowTitleEnabled(false)
 
         listenTodayAddedCustomers()
+        cacheSalesmanName()
 
         val bottomNavigation = binding.bottomNavigation
         bottomNavigation.itemIconTintList = resources.getColorStateList(R.color.bottom_nav_item_color, theme)
@@ -119,11 +120,13 @@ class SalesManMainScreen : AppCompatActivity() {
         super.onDestroy()
         countListener?.remove()
     }
+
     // initalizing toolbar's menu
     override fun onPrepareOptionsMenu(menu: Menu): Boolean {
         menu.findItem(R.id.action_search)?.isVisible = !isAddCustomerFragment
         return super.onPrepareOptionsMenu(menu)
     }
+
     // creating search and logout menu in ttolbar
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.sales_toolbar_menu, menu)
@@ -177,5 +180,28 @@ class SalesManMainScreen : AppCompatActivity() {
             }
             else -> super.onOptionsItemSelected(item)
         }
+    }
+
+    private fun cacheSalesmanName() {
+        val currentUser = FirebaseAuth.getInstance().currentUser ?: return
+        val uid = currentUser.uid
+        val email = currentUser.email ?: ""
+
+        com.google.firebase.firestore.FirebaseFirestore.getInstance()
+            .collection("Salesman").document(uid).get()
+            .addOnSuccessListener { doc ->
+                var name = doc.getString("name") ?: doc.getString("salesman_name") ?: doc.getString("agent_name") ?: ""
+                if (name.isBlank()) {
+                    name = if (email.contains("@")) {
+                        email.substringBefore("@").replace(".", " ")
+                    } else {
+                        "Sales Agent"
+                    }
+                }
+                getSharedPreferences("EggBucketPrefs", MODE_PRIVATE)
+                    .edit()
+                    .putString("agent_name", name)
+                    .apply()
+            }
     }
 }

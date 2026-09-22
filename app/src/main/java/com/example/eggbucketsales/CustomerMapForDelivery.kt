@@ -1,537 +1,605 @@
-    package com.example.eggbucketsales
+package com.example.eggbucketsales
 
-    import android.content.Context
-    import android.content.Intent
-    import android.content.pm.PackageManager
-    import android.graphics.Bitmap
-    import android.graphics.Canvas
-    import android.location.Location
-    import android.os.Bundle
-    import android.util.Log
-    import android.view.LayoutInflater
-    import android.view.View
-    import android.view.ViewGroup
-    import android.widget.*
-    import android.Manifest
-    import android.os.Looper
-    import androidx.core.app.ActivityCompat
-    import androidx.core.content.ContextCompat
-    import androidx.fragment.app.Fragment
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.location.Location
+import android.os.Bundle
+import android.util.Log
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.*
+import android.Manifest
+import android.os.Looper
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import androidx.fragment.app.Fragment
 
-    import androidx.viewpager2.widget.ViewPager2
+import androidx.viewpager2.widget.ViewPager2
 
-    import com.example.eggbucketsales.Adapters.CustomerCardAdapter
-    import com.example.eggbucketsales.Models.Customer
+import com.example.eggbucketsales.Adapters.CustomerCardAdapter
+import com.example.eggbucketsales.Models.Customer
 
-    import com.google.android.gms.location.*
-    import com.google.android.gms.maps.CameraUpdateFactory
-    import com.google.android.gms.maps.GoogleMap
-    import com.google.android.gms.maps.OnMapReadyCallback
-    import com.google.android.gms.maps.SupportMapFragment
-    import com.google.android.gms.maps.model.*
-    import com.google.firebase.firestore.FirebaseFirestore
-    import com.google.firebase.firestore.ListenerRegistration
-    import java.text.SimpleDateFormat
-    import java.util.Date
-    import java.util.Locale
+import com.google.android.gms.location.*
+import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.GoogleMap
+import com.google.android.gms.maps.OnMapReadyCallback
+import com.google.android.gms.maps.SupportMapFragment
+import com.google.android.gms.maps.model.*
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
+import com.google.firebase.auth.FirebaseAuth
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
-    class CustomerMapForDelivery : Fragment(), OnMapReadyCallback {
+class CustomerMapForDelivery : Fragment(), OnMapReadyCallback {
 
-        private lateinit var googleMap: GoogleMap
-        private val markerMap = mutableMapOf<String, Marker>()
-        private val allCustomers = mutableListOf<Customer>()
-        private var viewPager: ViewPager2? = null
-        private lateinit var customerAdapter: CustomerCardAdapter
-        private var lastSelectedCustomerPosition: LatLng? = null
-        private var lastSelectedCustomer: Customer? = null
-        private lateinit var fusedLocationClient: FusedLocationProviderClient
-        private lateinit var locationCallback: LocationCallback
-        private lateinit var locationRequest: LocationRequest
-        private var currentUserLocation: LatLng? = null
-        private  val LOCATION_PERMISSION_REQUEST_CODE = 1
-        private var customersListener: ListenerRegistration? = null
+    private lateinit var googleMap: GoogleMap
+    private val markerMap = mutableMapOf<String, Marker>()
+    private val allCustomers = mutableListOf<Customer>()
+    private var viewPager: ViewPager2? = null
+    private lateinit var customerAdapter: CustomerCardAdapter
+    private var lastSelectedCustomerPosition: LatLng? = null
+    private var lastSelectedCustomer: Customer? = null
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private lateinit var locationCallback: LocationCallback
+    private lateinit var locationRequest: LocationRequest
+    private var currentUserLocation: LatLng? = null
+    private val LOCATION_PERMISSION_REQUEST_CODE = 1
+    private var customersListener: ListenerRegistration? = null
 
 
-        private var mapReady = false
-        private var locationPermissionGranted = false
-        private var hasFetchedCustomers = false
-        private var isFirstLocationLoad = true
-        private var isFirstCustomerLoad = true
-        private var shouldFocusOnNextLocation = false
-        private val activeMarkers = mutableMapOf<String, Marker>()
-        private val markerIcons = mutableMapOf<Int, BitmapDescriptor>()
+    private var mapReady = false
+    private var locationPermissionGranted = false
+    private var hasFetchedCustomers = false
+    private var isFirstLocationLoad = true
+    private var isFirstCustomerLoad = true
+    private var shouldFocusOnNextLocation = false
+    private val activeMarkers = mutableMapOf<String, Marker>()
+    private val markerIcons = mutableMapOf<Int, BitmapDescriptor>()
 
-        private fun getCachedIcon(context: Context, resId: Int): BitmapDescriptor {
-            return markerIcons.getOrPut(resId) {
-                resizeMarker(context, resId, 100, 100)
-            }
+    private fun getCachedIcon(context: Context, resId: Int): BitmapDescriptor {
+        return markerIcons.getOrPut(resId) {
+            resizeMarker(context, resId, 100, 100)
+        }
+    }
+
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
+        return inflater.inflate(R.layout.fragment_customer_map_for_delivery, container, false)
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        viewPager = view.findViewById(R.id.customer_view_pager)
+
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireContext())
+
+        // Always initialize map fragment immediately so getMapAsync is never blocked
+        setupMapFragment()
+
+        if (ActivityCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(
+                requireActivity(),
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                1001
+            )
+        } else {
+            locationPermissionGranted = true
+            setupLocationUpdates()
+        }
+    }
+
+    private fun setupLocationUpdates() {
+        locationRequest = LocationRequest.create().apply {
+            interval = 5000
+            fastestInterval = 2000
+            priority = Priority.PRIORITY_HIGH_ACCURACY
         }
 
-        override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
-            return inflater.inflate(R.layout.fragment_customer_map_for_delivery, container, false)
-        }
-
-        override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-            super.onViewCreated(view, savedInstanceState)
-            viewPager = view.findViewById(R.id.customer_view_pager)
-
-            fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireContext())
-
-            if (ActivityCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED
-            ) {
-                ActivityCompat.requestPermissions(
-                    requireActivity(),
-                    arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
-                    1001
-                )
-            } else {
-                locationPermissionGranted = true
-                setupLocationUpdates()
-                setupMapFragment()
-            }
-        }
-
-        private fun setupLocationUpdates() {
-            locationRequest = LocationRequest.create().apply {
-                interval = 10000
-                fastestInterval = 5000
-                priority = Priority.PRIORITY_HIGH_ACCURACY
-            }
-
-            locationCallback = object : LocationCallback() {
-                override fun onLocationResult(locationResult: LocationResult) {
-                    locationResult.lastLocation?.let { location ->
-                        val latLng = LatLng(location.latitude, location.longitude)
-                        if (isSignificantChange(latLng, currentUserLocation)) {
-                            currentUserLocation = latLng
-                            if (::customerAdapter.isInitialized) {
-                                customerAdapter.updateCurrentLocation(latLng)
-                            }
+        locationCallback = object : LocationCallback() {
+            override fun onLocationResult(locationResult: LocationResult) {
+                locationResult.lastLocation?.let { location ->
+                    val latLng = LatLng(location.latitude, location.longitude)
+                    if (isSignificantChange(latLng, currentUserLocation)) {
+                        currentUserLocation = latLng
+                        if (::customerAdapter.isInitialized) {
+                            customerAdapter.updateCurrentLocation(latLng)
                         }
-                        
-                        if (mapReady) {
-                            if (isFirstLocationLoad || shouldFocusOnNextLocation) {
-                                googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 17f))
-                                isFirstLocationLoad = false
-                                shouldFocusOnNextLocation = false
-                            }
+                    }
+                    
+                    if (mapReady) {
+                        if (isFirstLocationLoad || shouldFocusOnNextLocation) {
+                            googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 16f))
+                            isFirstLocationLoad = false
+                            shouldFocusOnNextLocation = false
                         }
                     }
                 }
             }
+        }
 
+        if (ActivityCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
-        }
-
-
-
-        private fun setupMapFragment() {
-            val mapFragment = childFragmentManager.findFragmentById(R.id.mapfordelivery) as SupportMapFragment
-            mapFragment.getMapAsync(this)
-        }
-
-        override fun onMapReady(map: GoogleMap) {
-            googleMap = map
-            googleMap.uiSettings.isZoomControlsEnabled = true
-            mapReady = true
-            
-            view?.findViewById<ProgressBar>(R.id.map_loading_progress)?.visibility = View.GONE
-
-            if (locationPermissionGranted && !hasFetchedCustomers) {
-                fetchCustomersAndMark()
-                hasFetchedCustomers = true
-            }
-            if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION)
-                == PackageManager.PERMISSION_GRANTED) {
-
-                googleMap.isMyLocationEnabled = true
-                googleMap.uiSettings.isMyLocationButtonEnabled = true
-
-            } else {
-                ActivityCompat.requestPermissions(
-                    requireActivity(),
-                    arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
-                    LOCATION_PERMISSION_REQUEST_CODE
-                )
-            }
-            googleMap.setOnMarkerClickListener { marker ->
-                marker.showInfoWindow()
-                val uid = marker.tag as? String ?: ""
-                if (::customerAdapter.isInitialized) {
-                    val currentList = customerAdapter.currentList
-                    currentList.indexOfFirst { it.uid == uid }.takeIf { it >= 0 }?.let { position ->
-                        viewPager?.currentItem = position
-                        lastSelectedCustomerPosition = marker.position
-                        lastSelectedCustomer = currentList[position]
-                        viewPager?.visibility = View.VISIBLE
-                        moveMapToCustomer(marker.position)
+            fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
+                if (loc != null) {
+                    val latLng = LatLng(loc.latitude, loc.longitude)
+                    currentUserLocation = latLng
+                    if (mapReady && isFirstLocationLoad) {
+                        googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 16f))
+                        isFirstLocationLoad = false
                     }
                 }
-                true
             }
-            googleMap.setOnMapClickListener {
-                viewPager?.visibility = View.GONE
+        }
+    }
+
+    private fun setupMapFragment() {
+        val mapFragment = childFragmentManager.findFragmentById(R.id.mapfordelivery) as? SupportMapFragment
+        mapFragment?.getMapAsync(this)
+    }
+
+    override fun onMapReady(map: GoogleMap) {
+        googleMap = map
+        googleMap.uiSettings.isZoomControlsEnabled = true
+        mapReady = true
+        
+        // Hide loading progress bar immediately when map is ready
+        view?.findViewById<ProgressBar>(R.id.map_loading_progress)?.visibility = View.GONE
+
+        // Custom InfoWindow to render customer name badge directly floating above marker pin (like Pic 3)
+        googleMap.setInfoWindowAdapter(object : GoogleMap.InfoWindowAdapter {
+            override fun getInfoWindow(marker: Marker): View? {
+                val infoView = layoutInflater.inflate(R.layout.custom_info_window, null)
+                val tvTitle = infoView.findViewById<TextView>(R.id.info_window_title)
+                val tvSnippet = infoView.findViewById<TextView>(R.id.info_window_snippet)
+
+                tvTitle.text = marker.title ?: ""
+                if (!marker.snippet.isNullOrEmpty()) {
+                    tvSnippet.text = marker.snippet
+                    tvSnippet.visibility = View.VISIBLE
+                } else {
+                    tvSnippet.visibility = View.GONE
+                }
+                return infoView
+            }
+
+            override fun getInfoContents(marker: Marker): View? = null
+        })
+
+        if (!hasFetchedCustomers) {
+            fetchCustomersAndMark()
+            hasFetchedCustomers = true
+        }
+
+        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION)
+            == PackageManager.PERMISSION_GRANTED) {
+
+            googleMap.isMyLocationEnabled = true
+            googleMap.uiSettings.isMyLocationButtonEnabled = true
+            setupLocationUpdates()
+
+        } else {
+            ActivityCompat.requestPermissions(
+                requireActivity(),
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                LOCATION_PERMISSION_REQUEST_CODE
+            )
+        }
+
+        // Focus on Agent's Current Location if available
+        currentUserLocation?.let { latLng ->
+            if (isFirstLocationLoad) {
+                googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 16f))
+                isFirstLocationLoad = false
             }
         }
 
-        private fun fetchCustomersAndMark() {
-            val db = FirebaseFirestore.getInstance()
-            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
-                timeZone = java.util.TimeZone.getTimeZone("Asia/Kolkata")
+        googleMap.setOnMarkerClickListener { marker ->
+            marker.showInfoWindow()
+            val uid = marker.tag as? String ?: ""
+            if (::customerAdapter.isInitialized) {
+                val currentList = customerAdapter.currentList
+                currentList.indexOfFirst { it.uid == uid }.takeIf { it >= 0 }?.let { position ->
+                    viewPager?.visibility = View.VISIBLE
+                    viewPager?.setCurrentItem(position, false)
+                    lastSelectedCustomerPosition = marker.position
+                    lastSelectedCustomer = currentList[position]
+                    moveMapToCustomer(marker.position)
+                }
             }
-            val todayDate = sdf.format(Date())
+            true
+        }
 
-            customersListener?.remove()
-            // Cleanup existing listeners
-            deliveryListeners.values.forEach { it.remove() }
-            deliveryListeners.clear()
+        googleMap.setOnMapClickListener {
+            viewPager?.visibility = View.GONE
+        }
+    }
 
-            customersListener = db.collection("customers")
-                .addSnapshotListener { snapshot, error ->
-                    if (error != null) {
-                        Log.e("MapError", "Listen failed.", error)
-                        return@addSnapshotListener
-                    }
-                    
-                    // Don't clear if we have no data and it's just a cache miss
-                    if (snapshot == null || (snapshot.isEmpty && snapshot.metadata.isFromCache)) {
-                        return@addSnapshotListener
-                    }
-                    
-                    val oldPosition = viewPager?.currentItem ?: 0
-                    val currentContext = context ?: return@addSnapshotListener
-                    
-                    val newCustomers = mutableListOf<Customer>()
-                    val processedUids = mutableSetOf<String>()
-                    val coordinateCounts = mutableMapOf<LatLng, Int>()
-                    var focusUid: String? = null
-                    var focusLatLng: LatLng? = null
-                    
-                    markerMap.clear()
-                    
-                    // First, identify which markers to keep/update/add
-                    for (doc in snapshot.documents) {
-                        val uid = doc.id
-                        val name = doc.getString("name") ?: continue
-                        val location = doc.getString("location") ?: continue
-                        val business = doc.getString("business") ?: "Unknown"
-                        val phone = doc.getString("phone") ?: "N/A"
-                        val imageUrl = doc.getString("imageUrl") ?: ""
+    private fun fetchCustomersAndMark() {
+        val db = FirebaseFirestore.getInstance()
+        val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: return
+
+        db.collection("DeliveryMan").document(currentUserId).get()
+            .addOnSuccessListener { agentDoc ->
+                if (!isAdded) return@addOnSuccessListener
+                val agentRoute = agentDoc.getString("route") ?: ""
+                val routesList = agentRoute.split(",")
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+
+                val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
+                    timeZone = java.util.TimeZone.getTimeZone("Asia/Kolkata")
+                }
+                val todayDate = sdf.format(Date())
+
+                customersListener?.remove()
+                deliveryListeners.values.forEach { it.remove() }
+                deliveryListeners.clear()
+
+                val baseQuery = db.collection("customers")
+                val query = when {
+                    routesList.isEmpty() -> baseQuery.whereEqualTo("route", "__no_route__")
+                    routesList.size == 1 -> baseQuery.whereEqualTo("route", routesList[0])
+                    else -> baseQuery.whereIn("route", routesList)
+                }
+
+                customersListener = query.addSnapshotListener { snapshot, error ->
+                        if (error != null) {
+                            Log.e("MapError", "Listen failed.", error)
+                            return@addSnapshotListener
+                        }
                         
-                        val last8Days = doc.get("last8Days") as? Map<*, *>
-                        val todayData = last8Days?.get(todayDate) as? Map<*, *>
-                        val status = todayData?.get("status") as? String
-
-                        val todayOverride = doc.get("todayOverride") as? Map<*, *>
-                        var showOnMap = true
-                        if (todayOverride != null) {
-                            val overrideStatus = (todayOverride["status"] as? String)?.uppercase()
-                            if (overrideStatus == "OFF") {
-                                showOnMap = false
-                            } else if (overrideStatus == "ON") {
-                                focusUid = uid
-                            }
+                        if (snapshot == null || (snapshot.isEmpty && snapshot.metadata.isFromCache)) {
+                            return@addSnapshotListener
                         }
 
-                        if (showOnMap && (status == "delivered" || status == "reached")) {
-                            showOnMap = true
-                        }
-
-                        val latLng = parseLatLng(location)
-                        if (latLng != null && showOnMap) {
-                            processedUids.add(uid)
-
-                            val roundedLatLng = roundLatLng(latLng)
-                            val count = coordinateCounts[roundedLatLng] ?: 0
-                            coordinateCounts[roundedLatLng] = count + 1
-
-                            val finalLatLng = if (count > 0) {
-                                val angle = count * (2 * Math.PI / 8.0)
-                                val radius = 0.00006 * count
-                                LatLng(
-                                    latLng.latitude + radius * Math.sin(angle),
-                                    latLng.longitude + radius * Math.cos(angle)
-                                )
-                            } else {
-                                latLng
-                            }
+                        // Hide progress bar when customer snapshot arrives
+                        view?.findViewById<ProgressBar>(R.id.map_loading_progress)?.visibility = View.GONE
+                        
+                        val oldPosition = viewPager?.currentItem ?: 0
+                        val currentContext = context ?: return@addSnapshotListener
+                        
+                        val newCustomers = mutableListOf<Customer>()
+                        val processedUids = mutableSetOf<String>()
+                        val coordinateCounts = mutableMapOf<LatLng, Int>()
+                        var focusUid: String? = null
+                        var focusLatLng: LatLng? = null
+                        
+                        markerMap.clear()
+                        
+                        for (doc in snapshot.documents) {
+                            val uid = doc.id
+                            val name = doc.getString("name") ?: continue
+                            val location = doc.getString("location") ?: continue
+                            val business = doc.getString("business") ?: "Unknown"
+                            val phone = doc.getString("phone") ?: "N/A"
+                            val imageUrl = doc.getString("imageUrl") ?: ""
                             
-                            if (uid == focusUid) {
-                                focusLatLng = finalLatLng
+                            val customerRoute = doc.getString("route") ?: ""
+                            val matchesRoute = routesList.any { it.equals(customerRoute, ignoreCase = true) }
+                            if (!matchesRoute) {
+                                continue
                             }
-                            
-                            val customer = Customer(uid, name, business, phone, imageUrl, "", 0, location, true, status)
-                            newCustomers.add(customer)
 
-                            try {
-                                val iconRes = when (status) {
-                                    "delivered" -> R.drawable.green_marker
-                                    "reached" -> R.drawable.orangemarker
-                                    else -> R.drawable.baseline_location_pin_24
+                            val last8Days = doc.get("last8Days") as? Map<*, *>
+                            val todayData = last8Days?.get(todayDate) as? Map<*, *>
+                            val status = todayData?.get("status") as? String
+
+                            val todayOverride = doc.get("todayOverride") as? Map<*, *>
+                            var showOnMap = true
+                            if (todayOverride != null) {
+                                val overrideStatus = (todayOverride["status"] as? String)?.uppercase()
+                                if (overrideStatus == "OFF") {
+                                    showOnMap = false
+                                } else if (overrideStatus == "ON") {
+                                    focusUid = uid
                                 }
-                                // Use slightly larger size for better visibility
-                                val icon = getCachedIcon(currentContext, iconRes)
-                                
-                                val marker = if (activeMarkers.containsKey(uid)) {
-                                    activeMarkers[uid]!!.apply {
-                                        position = finalLatLng
-                                        title = name
-                                        setIcon(icon)
-                                    }
+                            }
+
+                            if (showOnMap && (status == "delivered" || status == "reached")) {
+                                showOnMap = true
+                            }
+
+                            val latLng = parseLatLng(location)
+                            if (latLng != null && showOnMap) {
+                                processedUids.add(uid)
+
+                                val roundedLatLng = roundLatLng(latLng)
+                                val count = coordinateCounts[roundedLatLng] ?: 0
+                                coordinateCounts[roundedLatLng] = count + 1
+
+                                val finalLatLng = if (count > 0) {
+                                    val angle = count * (2 * Math.PI / 8.0)
+                                    val radius = 0.00006 * count
+                                    LatLng(
+                                        latLng.latitude + radius * Math.sin(angle),
+                                        latLng.longitude + radius * Math.cos(angle)
+                                    )
                                 } else {
-                                    googleMap.addMarker(MarkerOptions()
-                                        .position(finalLatLng)
-                                        .title(name)
-                                        .icon(icon)
-                                        .anchor(0.5f, 0.5f))?.also {
-                                        activeMarkers[uid] = it
+                                    latLng
+                                }
+                                
+                                if (uid == focusUid) {
+                                    focusLatLng = finalLatLng
+                                }
+                                
+                                val customer = Customer(uid, name, business, phone, imageUrl, "", 0, location, true, status)
+                                newCustomers.add(customer)
+
+                                try {
+                                    val iconRes = when (status) {
+                                        "delivered" -> R.drawable.green_marker
+                                        "reached" -> R.drawable.orangemarker
+                                        else -> R.drawable.baseline_location_pin_24
+                                    }
+                                    val icon = getCachedIcon(currentContext, iconRes)
+                                    
+                                    val marker = if (activeMarkers.containsKey(uid)) {
+                                        activeMarkers[uid]!!.apply {
+                                            position = finalLatLng
+                                            title = name
+                                            snippet = business
+                                            setIcon(icon)
+                                        }
+                                    } else {
+                                        googleMap.addMarker(MarkerOptions()
+                                            .position(finalLatLng)
+                                            .title(name)
+                                            .snippet(business)
+                                            .icon(icon)
+                                            .anchor(0.5f, 0.5f))?.also {
+                                            activeMarkers[uid] = it
+                                        }
+                                    }
+
+                                    marker?.let {
+                                        it.tag = uid
+                                        markerMap[uid.lowercase()] = it
+                                        markerMap[name.lowercase()] = it
+                                    }
+                                } catch (e: Exception) {
+                                    Log.e("MapError", "Failed to add marker for $name", e)
+                                }
+                            }
+                        }
+
+                        val it = activeMarkers.entries.iterator()
+                        while (it.hasNext()) {
+                            val entry = it.next()
+                            if (!processedUids.contains(entry.key)) {
+                                entry.value.remove()
+                                it.remove()
+                            }
+                        }
+
+                        allCustomers.clear()
+                        allCustomers.addAll(newCustomers)
+
+                        if (!::customerAdapter.isInitialized) {
+                            val currentLatLng = currentUserLocation ?: LatLng(0.0, 0.0)
+                            customerAdapter = CustomerCardAdapter(
+                                currentContext,
+                                currentLatLng,
+                                onCustomerSelected = { customer, latLng ->
+                                    googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 17f))
+                                    activeMarkers[customer.uid]?.showInfoWindow()
+                                },
+                                onImageClick = { imgUrl ->
+                                    val intent = Intent(currentContext, FullScreenImage::class.java)
+                                    intent.putExtra("image_url", imgUrl)
+                                    startActivity(intent)
+                                }
+                            )
+                            viewPager?.adapter = customerAdapter
+                            viewPager?.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
+                                private var isUserScroll = false
+
+                                override fun onPageScrollStateChanged(state: Int) {
+                                    if (state == ViewPager2.SCROLL_STATE_DRAGGING) {
+                                        isUserScroll = true
+                                    } else if (state == ViewPager2.SCROLL_STATE_IDLE) {
+                                        isUserScroll = false
                                     }
                                 }
 
-                                marker?.let {
-                                    it.tag = uid
-                                    // Update search map
-                                    markerMap[uid.lowercase()] = it
-                                    markerMap[name.lowercase()] = it
-                                }
-                            } catch (e: Exception) {
-                                Log.e("MapError", "Failed to add marker for $name", e)
-                            }
-                        }
-                    }
-
-                    // Remove markers that are no longer present
-                    val it = activeMarkers.entries.iterator()
-                    while (it.hasNext()) {
-                        val entry = it.next()
-                        if (!processedUids.contains(entry.key)) {
-                            entry.value.remove()
-                            it.remove()
-                        }
-                    }
-
-                    allCustomers.clear()
-                    allCustomers.addAll(newCustomers)
-
-                    if (!::customerAdapter.isInitialized) {
-                        val currentLatLng = currentUserLocation ?: LatLng(0.0, 0.0)
-                        customerAdapter = CustomerCardAdapter(
-                            currentContext,
-                            currentLatLng,
-                            onCustomerSelected = { customer, latLng ->
-                                googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 17f))
-                                activeMarkers[customer.uid]?.showInfoWindow()
-                            },
-                            onImageClick = { imgUrl ->
-                                val intent = Intent(currentContext, FullScreenImage::class.java)
-                                intent.putExtra("image_url", imgUrl)
-                                startActivity(intent)
-                            }
-                        )
-                        viewPager?.adapter = customerAdapter
-                        viewPager?.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
-                            private var isUserScroll = false
-
-                            override fun onPageScrollStateChanged(state: Int) {
-                                if (state == ViewPager2.SCROLL_STATE_DRAGGING) {
-                                    isUserScroll = true
-                                } else if (state == ViewPager2.SCROLL_STATE_IDLE) {
-                                    isUserScroll = false
-                                }
-                            }
-
-                            override fun onPageSelected(position: Int) {
-                                val currentList = customerAdapter.currentList
-                                if (position in currentList.indices) {
-                                    val customer = currentList[position]
-                                    lastSelectedCustomer = customer
-                                    if (isUserScroll) {
-                                        val marker = activeMarkers[customer.uid]
-                                        marker?.let {
-                                            googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(it.position, 17f))
-                                            it.showInfoWindow()
+                                override fun onPageSelected(position: Int) {
+                                    val currentList = customerAdapter.currentList
+                                    if (position in currentList.indices) {
+                                        val customer = currentList[position]
+                                        lastSelectedCustomer = customer
+                                        if (isUserScroll) {
+                                            val marker = activeMarkers[customer.uid]
+                                            marker?.let {
+                                                googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(it.position, 17f))
+                                                it.showInfoWindow()
+                                            }
                                         }
                                     }
                                 }
-                            }
-                        })
-                    }
-                    customerAdapter.submitList(allCustomers.toList()) {
-                        val currentList = customerAdapter.currentList
-                        if (currentList.isNotEmpty()) {
-                            if (isFirstCustomerLoad) {
-                                viewPager?.visibility = View.GONE
-                                val targetIndex = if (oldPosition < currentList.size) oldPosition else 0
-                                viewPager?.currentItem = targetIndex
-                                isFirstCustomerLoad = false
-                            } else {
-                                if (viewPager?.visibility == View.VISIBLE) {
-                                    val currentUid = lastSelectedCustomer?.uid
-                                    val newIndex = if (currentUid != null) currentList.indexOfFirst { it.uid == currentUid } else -1
-                                    if (newIndex >= 0) {
-                                        viewPager?.currentItem = newIndex
-                                    } else {
-                                        val targetIndex = if (oldPosition < currentList.size) oldPosition else 0
-                                        viewPager?.currentItem = targetIndex
+                            })
+                        }
+                        customerAdapter.submitList(allCustomers.toList()) {
+                            val currentList = customerAdapter.currentList
+                            if (currentList.isNotEmpty()) {
+                                if (isFirstCustomerLoad) {
+                                    viewPager?.visibility = View.GONE
+                                    val targetIndex = if (oldPosition < currentList.size) oldPosition else 0
+                                    viewPager?.currentItem = targetIndex
+                                    isFirstCustomerLoad = false
+                                } else {
+                                    if (viewPager?.visibility == View.VISIBLE) {
+                                        val currentUid = lastSelectedCustomer?.uid
+                                        val newIndex = if (currentUid != null) currentList.indexOfFirst { it.uid == currentUid } else -1
+                                        if (newIndex >= 0) {
+                                            viewPager?.currentItem = newIndex
+                                        } else {
+                                            val targetIndex = if (oldPosition < currentList.size) oldPosition else 0
+                                            viewPager?.currentItem = targetIndex
+                                        }
                                     }
                                 }
+                            } else {
+                                viewPager?.visibility = View.GONE
                             }
-                        } else {
-                            viewPager?.visibility = View.GONE
                         }
                     }
-                }
-        }
-
-        private fun isSignificantChange(newLocation: LatLng, oldLocation: LatLng?, thresholdMeters: Float = 15f): Boolean {
-            if (oldLocation == null) return true
-            val result = FloatArray(1)
-            Location.distanceBetween(
-                oldLocation.latitude, oldLocation.longitude,
-                newLocation.latitude, newLocation.longitude,
-                result
-            )
-            return result[0] > thresholdMeters
-        }
-
-
-        override fun onResume() {
-            super.onResume()
-            shouldFocusOnNextLocation = true
-            if (mapReady && ::googleMap.isInitialized && currentUserLocation != null) {
-                googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentUserLocation!!, 17f))
-                shouldFocusOnNextLocation = false
             }
-            if (::fusedLocationClient.isInitialized && ::locationCallback.isInitialized &&
-                ActivityCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-            ) {
-                fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
+            .addOnFailureListener { e ->
+                Log.e("MapError", "Failed to fetch agent route", e)
             }
-        }
-
-        override fun onPause() {
-            super.onPause()
-            if (::fusedLocationClient.isInitialized && ::locationCallback.isInitialized) {
-                fusedLocationClient.removeLocationUpdates(locationCallback)
-            }
-        }
-
-
-        override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-            super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-            if (requestCode == 1001 && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                locationPermissionGranted = true
-                setupLocationUpdates()
-                setupMapFragment()
-
-                // 🔁 If map is already ready (it often is), retry fetching customers
-                if (mapReady && !hasFetchedCustomers) {
-                    fetchCustomersAndMark()
-                    hasFetchedCustomers = true
-                }
-            }
-        }
-
-        private fun moveMapToCustomer(latLng: LatLng) {
-            googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 17f))
-        }
-
-        private fun parseLatLng(location: String): LatLng? {
-            return try {
-                val pattern = Regex("-?\\d+\\.\\d+")
-                val matches = pattern.findAll(location).map { it.value.toDoubleOrNull() }.toList()
-                if (matches.size >= 2 && matches[0] != null && matches[1] != null) {
-                    LatLng(matches[0]!!, matches[1]!!)
-                } else {
-                    val parts = location.split(",").map { it.replace("[^0-9.-]".toRegex(), "").toDoubleOrNull() }
-                    if (parts.size >= 2 && parts[0] != null && parts[1] != null) {
-                        LatLng(parts[0]!!, parts[1]!!)
-                    } else {
-                        null
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("LocationParser", "Failed to parse location: $location", e)
-                null
-            }
-        }
-
-        private fun resizeMarker(context: Context, drawableRes: Int, width: Int, height: Int): BitmapDescriptor {
-            val drawable = ContextCompat.getDrawable(context, drawableRes)!!
-            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-            val canvas = Canvas(bitmap)
-            drawable.setBounds(0, 0, canvas.width, canvas.height)
-            drawable.draw(canvas)
-            return BitmapDescriptorFactory.fromBitmap(bitmap)
-        }
-
-        fun searchCustomer(query: String) {
-            if (query.isBlank()) return
-            val matchedEntry = markerMap.entries.find { it.key.contains(query.trim().lowercase()) }
-            matchedEntry?.let { entry ->
-                val marker = entry.value
-                googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(marker.position, 17f))
-                marker.showInfoWindow()
-                if (::customerAdapter.isInitialized) {
-                    val currentList = customerAdapter.currentList
-                    currentList.indexOfFirst { it.name.equals(marker.title, ignoreCase = true) }.takeIf { it >= 0 }?.let { position ->
-                        viewPager?.currentItem = position
-                        lastSelectedCustomerPosition = marker.position
-                        lastSelectedCustomer = currentList[position]
-                        viewPager?.visibility = View.VISIBLE
-                    } ?: Toast.makeText(requireContext(), "Customer data not found", Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(requireContext(), "Customer data not loaded yet", Toast.LENGTH_SHORT).show()
-                }
-            } ?: Toast.makeText(requireContext(), "Customer not found", Toast.LENGTH_SHORT).show()
-        }
-
-        private fun roundLatLng(latLng: LatLng): LatLng {
-            val roundedLat = Math.round(latLng.latitude * 100000.0) / 100000.0
-            val roundedLng = Math.round(latLng.longitude * 100000.0) / 100000.0
-            return LatLng(roundedLat, roundedLng)
-        }
-
-
-        private val deliveryListeners = mutableMapOf<String, ListenerRegistration>()
-
-        fun refreshCustomerMap(onComplete: () -> Unit) {
-            if (mapReady) {
-                fetchCustomersAndMark()
-                Toast.makeText(requireContext(), "Map refreshed", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(requireContext(), "Map is not ready yet", Toast.LENGTH_SHORT).show()
-            }
-            onComplete() // call back after refresh logic
-        }
-        override fun onDestroyView() {
-            super.onDestroyView()
-            customersListener?.remove()
-            deliveryListeners.values.forEach { it.remove() }
-            deliveryListeners.clear()
-            
-            // CRITICAL: Clear markers from memory so they don't conflict with the next map instance
-            activeMarkers.values.forEach { it.remove() }
-            activeMarkers.clear()
-            markerMap.clear()
-
-            if (::fusedLocationClient.isInitialized && ::locationCallback.isInitialized) {
-                fusedLocationClient.removeLocationUpdates(locationCallback)
-            }
-
-            hasFetchedCustomers = false
-
-            // Explicitly remove the SupportMapFragment to avoid getMapAsync stuck/freeze bugs when recreated
-            try {
-                val mapFragment = childFragmentManager.findFragmentById(R.id.mapfordelivery)
-                if (mapFragment != null) {
-                    childFragmentManager.beginTransaction().remove(mapFragment).commitAllowingStateLoss()
-                }
-            } catch (e: Exception) {
-                Log.e("CustomerMapForDelivery", "Error removing map fragment", e)
-            }
-        }
-
-
     }
+
+    private fun isSignificantChange(newLocation: LatLng, oldLocation: LatLng?, thresholdMeters: Float = 15f): Boolean {
+        if (oldLocation == null) return true
+        val result = FloatArray(1)
+        Location.distanceBetween(
+            oldLocation.latitude, oldLocation.longitude,
+            newLocation.latitude, newLocation.longitude,
+            result
+        )
+        return result[0] > thresholdMeters
+    }
+
+    override fun onResume() {
+        super.onResume()
+        shouldFocusOnNextLocation = true
+        if (mapReady && ::googleMap.isInitialized) {
+            view?.findViewById<ProgressBar>(R.id.map_loading_progress)?.visibility = View.GONE
+            if (currentUserLocation != null && isFirstLocationLoad) {
+                googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentUserLocation!!, 16f))
+                shouldFocusOnNextLocation = false
+                isFirstLocationLoad = false
+            }
+        }
+        if (::fusedLocationClient.isInitialized && ::locationCallback.isInitialized &&
+            ActivityCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        ) {
+            fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        if (::fusedLocationClient.isInitialized && ::locationCallback.isInitialized) {
+            fusedLocationClient.removeLocationUpdates(locationCallback)
+        }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 1001 && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            locationPermissionGranted = true
+            setupLocationUpdates()
+            setupMapFragment()
+
+            if (mapReady && !hasFetchedCustomers) {
+                fetchCustomersAndMark()
+                hasFetchedCustomers = true
+            }
+        }
+    }
+
+    private fun moveMapToCustomer(latLng: LatLng) {
+        googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 17f))
+    }
+
+    private fun parseLatLng(location: String): LatLng? {
+        return try {
+            val pattern = Regex("-?\\d+\\.\\d+")
+            val matches = pattern.findAll(location).map { it.value.toDoubleOrNull() }.toList()
+            if (matches.size >= 2 && matches[0] != null && matches[1] != null) {
+                LatLng(matches[0]!!, matches[1]!!)
+            } else {
+                val parts = location.split(",").map { it.replace("[^0-9.-]".toRegex(), "").toDoubleOrNull() }
+                if (parts.size >= 2 && parts[0] != null && parts[1] != null) {
+                    LatLng(parts[0]!!, parts[1]!!)
+                } else {
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("LocationParser", "Failed to parse location: $location", e)
+            null
+        }
+    }
+
+    private fun resizeMarker(context: Context, drawableRes: Int, width: Int, height: Int): BitmapDescriptor {
+        val drawable = ContextCompat.getDrawable(context, drawableRes)!!
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        drawable.setBounds(0, 0, canvas.width, canvas.height)
+        drawable.draw(canvas)
+        return BitmapDescriptorFactory.fromBitmap(bitmap)
+    }
+
+    fun searchCustomer(query: String) {
+        if (query.isBlank()) return
+        val matchedEntry = markerMap.entries.find { it.key.contains(query.trim().lowercase()) }
+        matchedEntry?.let { entry ->
+            val marker = entry.value
+            googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(marker.position, 17f))
+            marker.showInfoWindow()
+            if (::customerAdapter.isInitialized) {
+                val currentList = customerAdapter.currentList
+                currentList.indexOfFirst { it.name.equals(marker.title, ignoreCase = true) }.takeIf { it >= 0 }?.let { position ->
+                    viewPager?.visibility = View.VISIBLE
+                    viewPager?.setCurrentItem(position, false)
+                    lastSelectedCustomerPosition = marker.position
+                    lastSelectedCustomer = currentList[position]
+                } ?: Toast.makeText(requireContext(), "Customer data not found", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(requireContext(), "Customer data not loaded yet", Toast.LENGTH_SHORT).show()
+            }
+        } ?: Toast.makeText(requireContext(), "Customer not found", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun roundLatLng(latLng: LatLng): LatLng {
+        val roundedLat = Math.round(latLng.latitude * 100000.0) / 100000.0
+        val roundedLng = Math.round(latLng.longitude * 100000.0) / 100000.0
+        return LatLng(roundedLat, roundedLng)
+    }
+
+    private val deliveryListeners = mutableMapOf<String, ListenerRegistration>()
+
+    fun refreshCustomerMap(onComplete: () -> Unit) {
+        if (mapReady) {
+            fetchCustomersAndMark()
+            Toast.makeText(requireContext(), "Map refreshed", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(requireContext(), "Map is not ready yet", Toast.LENGTH_SHORT).show()
+        }
+        onComplete()
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        customersListener?.remove()
+        deliveryListeners.values.forEach { it.remove() }
+        deliveryListeners.clear()
+        
+        activeMarkers.values.forEach { it.remove() }
+        activeMarkers.clear()
+        markerMap.clear()
+
+        if (::fusedLocationClient.isInitialized && ::locationCallback.isInitialized) {
+            fusedLocationClient.removeLocationUpdates(locationCallback)
+        }
+
+        hasFetchedCustomers = false
+
+        try {
+            val mapFragment = childFragmentManager.findFragmentById(R.id.mapfordelivery)
+            if (mapFragment != null) {
+                childFragmentManager.beginTransaction().remove(mapFragment).commitAllowingStateLoss()
+            }
+        } catch (e: Exception) {
+            Log.e("CustomerMapForDelivery", "Error removing map fragment", e)
+        }
+    }
+}

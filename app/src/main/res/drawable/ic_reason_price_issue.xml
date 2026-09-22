@@ -1,0 +1,26 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="28dp"
+    android:height="28dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Coin Stack 1 -->
+    <path
+        android:fillColor="#FF7A00"
+        android:pathData="M9,3 C5.13,3 2,4.12 2,5.5 C2,6.88 5.13,8 9,8 C12.87,8 16,6.88 16,5.5 C16,4.12 12.87,3 9,3 Z"/>
+    <path
+        android:fillColor="#E65100"
+        android:pathData="M2,6.5 C2,7.88 5.13,9 9,9 C12.87,9 16,7.88 16,6.5 L16,8.5 C16,9.88 12.87,11 9,11 C5.13,11 2,9.88 2,8.5 Z"/>
+    <path
+        android:fillColor="#FF7A00"
+        android:pathData="M2,9.5 C2,10.88 5.13,12 9,12 C12.87,12 16,10.88 16,9.5 L16,11.5 C16,12.88 12.87,14 9,14 C5.13,14 2,12.88 2,11.5 Z"/>
+    <!-- Coin Stack 2 (Right/Front) -->
+    <path
+        android:fillColor="#FF9100"
+        android:pathData="M15,10 C11.69,10 9,11.12 9,12.5 C9,13.88 11.69,15 15,15 C18.31,15 21,13.88 21,12.5 C21,11.12 18.31,10 15,10 Z"/>
+    <path
+        android:fillColor="#FF7A00"
+        android:pathData="M9,13.5 C9,14.88 11.69,16 15,16 C18.31,16 21,14.88 21,13.5 L21,15.5 C21,16.88 18.31,18 15,18 C11.69,18 9,16.88 9,15.5 Z"/>
+    <path
+        android:fillColor="#E65100"
+        android:pathData="M9,16.5 C9,17.88 11.69,19 15,19 C18.31,19 21,17.88 21,16.5 L21,18.5 C21,19.88 18.31,21 15,21 C11.69,21 9,19.88 9,18.5 Z"/>
+</vector>

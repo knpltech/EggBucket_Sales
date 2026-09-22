@@ -6,31 +6,26 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-
-
-
     <fragment
         android:id="@+id/map"
         android:name="com.google.android.gms.maps.SupportMapFragment"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"/>
+
     <LinearLayout
         android:id="@+id/customerBottomCard"
         android:layout_width="match_parent"
-        android:layout_height="90dp"
+        android:layout_height="wrap_content"
         android:layout_gravity="bottom">
+
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
+            android:layout_height="wrap_content"
             android:layout_gravity="bottom"
             app:cardBackgroundColor="@color/white"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintLeft_toLeftOf="parent"
-            app:layout_constraintRight_toRightOf="parent"
-            app:layout_behavior="@string/hide_bottom_view_on_scroll_behavior"
-            android:paddingBottom="0dp"
-            app:layout_insetEdge="bottom">
+            app:cardElevation="6dp"
+            android:paddingBottom="0dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -38,11 +33,13 @@
                 android:layout_gravity="center_vertical"
                 android:layout_margin="8dp"
                 android:orientation="horizontal">
+
                 <ImageView
                     android:id="@+id/customerbottomimageforsalesman"
-                    android:layout_width="80dp"
-                    android:layout_height="80dp"
-                    android:layout_marginEnd="10dp"
+                    android:layout_width="75dp"
+                    android:layout_height="75dp"
+                    android:layout_marginEnd="8dp"
+                    android:scaleType="centerCrop"
                     android:src="@drawable/logo" />
 
                 <LinearLayout
@@ -56,12 +53,12 @@
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
                         android:gravity="center_vertical"
-                        android:layout_marginBottom="4dp">
+                        android:layout_marginBottom="2dp">
                         <ImageView
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
                             android:src="@drawable/person_24"
-                            android:layout_marginEnd="8dp"
+                            android:layout_marginEnd="6dp"
                             app:tint="@color/maincolor" />
                         <TextView
                             android:id="@+id/customerNameforsalesman"
@@ -69,49 +66,144 @@
                             android:layout_height="wrap_content"
                             android:text="John Doe"
                             android:textStyle="bold"
-                            android:textSize="16sp"
+                            android:textSize="15sp"
                             android:textColor="#000" />
                     </LinearLayout>
+
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
                         android:gravity="center_vertical"
-                        android:layout_marginBottom="4dp">
+                        android:layout_marginBottom="2dp">
                         <ImageView
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
                             android:src="@drawable/business_24"
                             app:tint="@color/maincolor"
-                            android:layout_marginEnd="8dp"/>
+                            android:layout_marginEnd="6dp"/>
                         <TextView
                             android:id="@+id/businessNameforsalesman"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Doe Traders"
                             android:textColor="#444"
-                            android:textSize="15sp" />
-
+                            android:textSize="14sp" />
                     </LinearLayout>
+
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:layout_marginBottom="4dp">
+                        android:gravity="center_vertical">
                         <TextView
-                            android:id="@+id/customerLatlngforsalesman"
+                            android:id="@+id/customerDistanceforsalesman"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
+                            android:text="0 m away"
+                            android:textStyle="bold"
                             android:textColor="#444"
-                            android:textSize="15sp" />
-
+                            android:textSize="13sp" />
+                        <ImageView
+                            android:id="@+id/refreshLocationforsalesman"
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:layout_marginStart="8dp"
+                            android:src="@drawable/baseline_refresh_24"
+                            app:tint="@color/red"/>
                     </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/layoutLastDeliveryforsalesman"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginTop="3dp">
+                        <TextView
+                            android:id="@+id/customerCategoryBadgeforsalesman"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="D0"
+                            android:textSize="10sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/white"
+                            android:background="@drawable/badge_d0_bg"
+                            android:paddingStart="6dp"
+                            android:paddingEnd="6dp"
+                            android:paddingTop="1dp"
+                            android:paddingBottom="1dp"
+                            android:layout_marginEnd="6dp" />
+                        <TextView
+                            android:id="@+id/customerLastDeliveryforsalesman"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Last Order: 29 Aug (30 trays)"
+                            android:textColor="#D33434"
+                            android:textStyle="bold"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/customerLatlngforsalesman"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="#888"
+                        android:textSize="11sp"
+                        android:visibility="gone" />
+
                 </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="end"
+                    android:layout_gravity="center_vertical">
+
+                    <androidx.cardview.widget.CardView
+                        android:id="@+id/cardBtnUpdateforsalesman"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="4dp"
+                        app:cardCornerRadius="4dp"
+                        app:cardElevation="2dp">
+                        <TextView
+                            android:id="@+id/btnUpdateforsalesman"
+                            android:layout_width="80dp"
+                            android:layout_height="wrap_content"
+                            android:text="UPDATE"
+                            android:gravity="center"
+                            android:paddingTop="6dp"
+                            android:paddingBottom="6dp"
+                            android:background="@color/red"
+                            android:textStyle="bold"
+                            android:textSize="13sp"
+                            android:textColor="@color/white"/>
+                    </androidx.cardview.widget.CardView>
+
+                    <androidx.cardview.widget.CardView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:cardCornerRadius="4dp"
+                        app:cardElevation="2dp">
+                        <TextView
+                            android:id="@+id/btnStartforsalesman"
+                            android:layout_width="80dp"
+                            android:layout_height="wrap_content"
+                            android:text="START"
+                            android:gravity="center"
+                            android:paddingTop="6dp"
+                            android:paddingBottom="6dp"
+                            android:background="#2196F3"
+                            android:textStyle="bold"
+                            android:textSize="13sp"
+                            android:textColor="@color/white"/>
+                    </androidx.cardview.widget.CardView>
+                </LinearLayout>
+
             </LinearLayout>
         </androidx.cardview.widget.CardView>
     </LinearLayout>
-
-
 
 </LinearLayout>

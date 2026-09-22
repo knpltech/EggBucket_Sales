@@ -62,15 +62,22 @@ class DeliveryHistoryAdapter :
                 holder.tvQuantity.text = if (item.quantity == 1) "${item.quantity} Tray" else "${item.quantity} Trays"
                 holder.tvAmount.text = "₹${item.totalAmount}"
             }
-            "reached", "shop_closed", "stock_available", "other_vendor" -> {
+            "reached", "shop_closed", "stock_available", "other_vendor", "confirmed_tomorrow", "price_issue", "not_interested", "busy_right_now", "busy_now", "not_available", "owner_not_available", "quality_issue", "need_credit" -> {
                 holder.tvStatus.setBackgroundResource(R.drawable.rounded_edittext_bg)
                 holder.tvStatus.backgroundTintList = ContextCompat.getColorStateList(holder.itemView.context, R.color.maincolor)
                 holder.detailsLayout.visibility = View.VISIBLE
                 val reasonText = when(item.reason) {
-                    "shop_closed" -> "Shop Closed"
                     "stock_available" -> "Stock Available"
                     "other_vendor" -> "Other Vendor"
-                    else -> if (item.reason.isEmpty()) "Reached" else item.reason.replace("_", " ").lowercase(Locale.getDefault()).replaceFirstChar { it.uppercase() }
+                    "price_issue" -> "Price Issue"
+                    "shop_closed" -> "Shop Closed"
+                    "confirmed_tomorrow" -> "Confirmed For Tomorrow"
+                    "not_interested" -> "Not Interested"
+                    "busy_right_now", "busy_now" -> "Busy Right Now"
+                    "not_available", "owner_not_available" -> "Owner Not Available"
+                    "quality_issue" -> "Quality Issue"
+                    "need_credit" -> "Need Credit"
+                    else -> if (item.reason.isEmpty()) "Reached" else item.reason.replace("_", " ").lowercase(Locale.getDefault()).split(" ").joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
                 }
                 holder.tvQuantity.text = "Reason: $reasonText"
                 holder.tvAmount.text = ""

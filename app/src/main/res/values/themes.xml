@@ -11,5 +11,11 @@
         <item name="cornerSize">50%</item>
     </style>
 
+    <style name="FullScreenDialogTheme" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:windowBackground">@color/white</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:statusBarColor">@color/maincolor</item>
+    </style>
 
 </resources>

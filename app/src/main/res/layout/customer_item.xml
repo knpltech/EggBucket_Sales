@@ -55,12 +55,27 @@
                     app:tint="@color/maincolor" />
                 <TextView
                     android:id="@+id/customerName"
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
                     android:layout_height="wrap_content"
                     android:text="John Doe"
                     android:textStyle="bold"
                     android:textSize="16sp"
                     android:textColor="#000" />
+                <TextView
+                    android:id="@+id/customerCategoryBadge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="D0"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/white"
+                    android:background="@drawable/badge_d0_bg"
+                    android:paddingStart="6dp"
+                    android:paddingEnd="6dp"
+                    android:paddingTop="1dp"
+                    android:paddingBottom="1dp"
+                    android:visibility="gone" />
             </LinearLayout>
             <LinearLayout
                 android:layout_width="match_parent"
@@ -101,6 +116,16 @@
                     android:textColor="#444"
                     android:textSize="15sp" />
             </LinearLayout>
+            <TextView
+                android:id="@+id/customerLastDeliveryText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Last: 29 Aug • 30 trays"
+                android:textColor="#D33434"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
 
         </LinearLayout>
     </LinearLayout>

@@ -5,7 +5,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.widget.Button
-import android.widget.PopupMenu
+import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.DialogFragment
 import com.example.eggbucketsales.Models.Customer
@@ -24,34 +24,28 @@ class DeliveryFormDialog(
         val cancelBtn = view.findViewById<Button>(R.id.cancelButton)
 
         deliverBtn.setOnClickListener {
+            if (customer.status?.lowercase() == "delivered" || customer.status?.lowercase() == "reached") {
+                Toast.makeText(requireContext(), "Customer status is already updated for today", Toast.LENGTH_SHORT).show()
+                dismiss()
+                return@setOnClickListener
+            }
             val intent = Intent(requireContext(), DeliveryDetailsActivity::class.java)
             intent.putExtra("customer", customer)
             startActivity(intent)
             dismiss()
         }
 
-//        reachedBtn.setOnClickListener {
-//            onActionSelected("reached")
-//            dismiss()
-//        }
-        reachedBtn.setOnClickListener { view ->
-            val popupMenu = PopupMenu(requireContext(), view)
-
-            popupMenu.menu.add("SHOP CLOSED")
-            popupMenu.menu.add("STOCK AVAILABLE")
-            popupMenu.menu.add("OTHER VENDOR")
-
-            popupMenu.setOnMenuItemClickListener { item ->
-                when (item.title.toString()) {
-                    "SHOP CLOSED" -> onActionSelected("shop_closed")
-                    "STOCK AVAILABLE" -> onActionSelected("stock_available")
-                    "OTHER VENDOR" -> onActionSelected("other_vendor")
-                }
+        reachedBtn.setOnClickListener {
+            if (customer.status?.lowercase() == "delivered" || customer.status?.lowercase() == "reached") {
+                Toast.makeText(requireContext(), "Customer status is already updated for today", Toast.LENGTH_SHORT).show()
                 dismiss()
-                true
+                return@setOnClickListener
             }
-
-            popupMenu.show()
+            dismiss()
+            val reasonDialog = CheckReasonBottomSheetDialog(customer) { reasonId ->
+                onActionSelected(reasonId)
+            }
+            reasonDialog.show(parentFragmentManager, "CheckReasonBottomSheetDialog")
         }
 
         cancelBtn.setOnClickListener {

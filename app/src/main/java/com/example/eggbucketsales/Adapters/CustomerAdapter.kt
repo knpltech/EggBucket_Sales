@@ -35,11 +35,44 @@ class CustomerAdapter(
         private val customerPhone: TextView = itemView.findViewById(R.id.customerPhone)
         private val customerImage: ImageView = itemView.findViewById(R.id.customerImage)
         private val progressBar: ProgressBar = itemView.findViewById(R.id.customerimageLoadingProgress)
+        private val categoryBadge: TextView = itemView.findViewById(R.id.customerCategoryBadge)
+        private val lastDeliveryText: TextView = itemView.findViewById(R.id.customerLastDeliveryText)
 
         fun bind(customer: Customer) {
             customerName.text = customer.name
             businessName.text = customer.business
             customerPhone.text = customer.phone
+
+            val isNew = isCustomerNewlyAdded(customer)
+            if (isNew) {
+                categoryBadge.visibility = View.VISIBLE
+                categoryBadge.text = "NEW"
+                categoryBadge.setBackgroundResource(R.drawable.badge_new_bg)
+            } else if (customer.category.isNotBlank() || customer.isD0OrD1) {
+                categoryBadge.visibility = View.VISIBLE
+                categoryBadge.text = if (customer.category.isNotBlank()) customer.category else "D0"
+                if (customer.isD0OrD1) {
+                    categoryBadge.setBackgroundResource(R.drawable.badge_d0_bg)
+                } else {
+                    categoryBadge.setBackgroundResource(R.drawable.badge_bg)
+                }
+            } else {
+                categoryBadge.visibility = View.GONE
+            }
+
+            if (!customer.lastDeliveredDate.isNullOrBlank()) {
+                lastDeliveryText.visibility = View.VISIBLE
+                val dateFmt = formatDeliveryDate(customer.lastDeliveredDate)
+                val qtyStr = if (customer.lastDeliveredQty > 0) " • ${customer.lastDeliveredQty} trays" else ""
+                val amtStr = if (customer.lastDeliveredAmount > 0) " (₹${customer.lastDeliveredAmount})" else ""
+                lastDeliveryText.text = "Last: $dateFmt$qtyStr$amtStr"
+            } else if (customer.isD0OrD1 && !isNew) {
+                lastDeliveryText.visibility = View.VISIBLE
+                lastDeliveryText.text = "No orders in last 8 days"
+            } else {
+                lastDeliveryText.visibility = View.GONE
+            }
+
             progressBar.visibility = View.VISIBLE
             Glide.with(itemView.context)
                 .load(customer.imageUrl)
@@ -70,6 +103,30 @@ class CustomerAdapter(
 
             itemView.setOnClickListener {
                 onItemClick(customer)
+            }
+        }
+
+        private fun isCustomerNewlyAdded(customer: Customer?): Boolean {
+            if (customer == null || customer.createdAt <= 0L) return false
+            val calendar = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Kolkata"))
+            calendar.set(java.util.Calendar.HOUR_OF_DAY, 0)
+            calendar.set(java.util.Calendar.MINUTE, 0)
+            calendar.set(java.util.Calendar.SECOND, 0)
+            calendar.set(java.util.Calendar.MILLISECOND, 0)
+            calendar.add(java.util.Calendar.DAY_OF_YEAR, -45)
+            val last45DaysMillis = calendar.timeInMillis
+            return customer.createdAt >= last45DaysMillis
+        }
+
+        private fun formatDeliveryDate(dateStr: String?): String {
+            if (dateStr.isNullOrBlank()) return ""
+            return try {
+                val parser = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+                val formatter = java.text.SimpleDateFormat("d MMM", java.util.Locale.US)
+                val d = parser.parse(dateStr)
+                if (d != null) formatter.format(d) else dateStr
+            } catch (e: Exception) {
+                dateStr
             }
         }
     }
